@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Airlytics</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            text-align: center;
+            margin: 0; 
+            padding: 0;
+            overflow: hidden; 
+        }
+        #timer-area {
+            position: relative;
+            z-index: 10; 
+            margin-top: 50px;
+        }
+        #timer {
+            font-size: 3em;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        /* CSS untuk Gambar Full Layar */
+        #gambar-container {
+            display: none;
+            position: fixed; 
+            top: 0;
+            left: 0;
+            width: 100vw; 
+            height: 100vh; 
+            z-index: 999; 
+            background-color: black; 
+            overflow: hidden;
+        }
+        
+        #gambar-muncul {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            transform: translate(-50%, -50%); 
+            object-fit: cover; 
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="timer-area">
+        <h1>⏳ Mohon Tunggu</h1>
+        <div id="timer">5</div>
+        <p>Silahkan Tunggu...</p>
+    </div>
+
+    <div id="gambar-container">
+        <img id="gambar-muncul" src="hantu.jpeg" alt="Gambar Muncul"> 
+    </div>
+
+    <audio id="suara-muncul" src="jump.mp3" preload="auto"></audio>
+
+    <script>
+        const timerElement = document.getElementById('timer');
+        const gambarContainer = document.getElementById('gambar-container');
+        // Ambil elemen audio
+        const audioElement = document.getElementById('suara-muncul'); 
+        
+        let waktuSisa = 5;
+        let intervalId;
+
+        // Fungsi untuk mengupdate tampilan timer
+        function updateTimer() {
+            timerElement.textContent = waktuSisa;
+
+            if (waktuSisa <= 0) {
+                // Hentikan timer
+                clearInterval(intervalId);
+                
+                // Tampilkan gambar full layar
+                gambarContainer.style.display = 'block';
+                
+                // 📢 Mainkan Suara
+                audioElement.play(); 
+                
+                // Setelah 1 detik, sembunyikan gambar dan reset timer
+                setTimeout(() => {
+                    // Jeda Suara
+                    audioElement.pause();
+                    audioElement.currentTime = 0; // Reset audio ke awal
+                    
+                    gambarContainer.style.display = 'none';
+                    
+                    // Reset waktu dan mulai lagi
+                    waktuSisa = 5;
+                    intervalId = setInterval(updateTimer, 1000); // Mulai timer lagi
+                    timerElement.textContent = waktuSisa; // Update tampilan segera
+                }, 1000); // 1000 milidetik = 1 detik
+
+            } else {
+                // Kurangi waktu
+                waktuSisa--;
+            }
+        }
+
+        // Mulai timer ketika halaman dimuat
+        window.onload = function() {
+            intervalId = setInterval(updateTimer, 1000);
+        };
+    </script>
+
+</body>
+</html>

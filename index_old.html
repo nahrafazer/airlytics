@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AQI Classification</title>
+    <link rel="icon" type="image/x-icon" href="airlytic_logo_gradient.png">
+    <link rel="stylesheet" href="output.css" />
+    <link rel="stylesheet" href="gauge.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap"
+        rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Kredensial (Gunakan const karena nilainya tidak berubah)
+        const supabaseUrl = 'https://qnvthdiylfpuumcancxo.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFudnRoZGl5bGZwdXVtY2FuY3hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5MTMyODgsImV4cCI6MjA3NjQ4OTI4OH0.MnE1KiXh16SelbzOtKFusxgJHAfEtcRrCFvUOlzsCMs';
+        // PERBAIKAN: Gunakan `window.supabase` (namespace global) untuk memanggil createClient,
+        // lalu simpan hasilnya ke variabel `supabase` yang akan digunakan oleh fetchData().
+        const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+    </script>
+    <style>
+        #background-video {
+            position: fixed;
+            right: 0;
+            bottom: 0;
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            z-index: -100;
+            object-fit: cover;
+        }
+
+        /* body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0);
+            z-index: -99;
+        } */
+
+        body {
+            font-family: "Nunito", sans-serif;
+            background-color: transparent;
+        }
+
+        #title {
+            font-weight: 900;
+        }
+
+        #ispubaik {
+            font-weight: 700;
+            display: none;
+        }
+
+        #ispusedang {
+            font-weight: 700;
+            display: none;
+        }
+
+        #isputidaksehat {
+            font-weight: 700;
+            display: none;
+        }
+
+        #ispusangattidaksehat {
+            font-weight: 700;
+            display: none;
+        }
+
+        #ispuberbahaya {
+            font-weight: 700;
+            display: none;
+        }
+
+        .temp-humid-value {
+            font-size: 3rem;
+            /* Larger font size */
+            font-weight: bold;
+            /* Bold text */
+            color: #233a6d;
+            /* A color that contrasts well with the blue gradient */
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+            /* Subtle text shadow for depth */
+            margin-top: 0.5rem;
+            /* Space from the title */
+        }
+
+        .temp-humid-label {
+            font-size: 1.25rem;
+            /* Smaller font size for label */
+            font-weight: 700;
+            /* Bold text */
+            color: #233a6d;
+            /* Consistent color */
+        }
+
+        /* NEW CSS for Hover Effect */
+        /* NEW CSS for Hover Effect */
+        /* Pastikan elemen <a> menjadi konteks positioning */
+        .history-data-button a {
+            position: relative;
+            overflow: hidden;
+            /* Pastikan konten tidak melebar */
+        }
+
+        /* Terapkan transisi ke elemen gambar dan teks */
+        .history-data-image,
+        .history-data-text {
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+            position: absolute;
+            /* Tetap pertahankan absolute agar bisa di tumpuk */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            /* Tambahkan properti positioning agar gambar & teks menempati ruang yang sama */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Kondisi default: Gambar terlihat, Teks tersembunyi */
+        .history-data-image {
+            opacity: 1;
+            visibility: visible;
+            position: relative;
+            /* Ganti ke relative agar menahan tinggi button saat tidak di-hover */
+        }
+
+        .history-data-text {
+            opacity: 0;
+            visibility: hidden;
+            position: absolute;
+            /* Kembali ke absolute agar bisa di tumpuk */
+            /* Hapus class 'hidden' dari Tailwind di HTML agar kita bisa kontrol sepenuhnya dengan CSS */
+        }
+
+        /* Kondisi Hover: Gambar tersembunyi, Teks terlihat */
+        .history-data-button:hover .history-data-image {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .history-data-button:hover .history-data-text {
+            opacity: 1;
+            visibility: visible;
+        }
+    </style>
+</head>
+
+<body class="bg-darker-grey min-h-screen flex flex-col">
+    <div class="container max-w-full justify-center max-h-screen flex-col px-2 hidden md:flex" id="container-desktop">
+        <div class="relative h-72 w-full mt-2 rounded-2xl bg-opacity-20">
+            <div class="flex flex-row size-full">
+                <div class="h-full w-1/3 rounded-2xl bg-gradient-to-tr from-darker-blue to-lighter-blue flex-col flex justify-center items-center  text-cyan-950"
+                    id="classnum">
+                    <p class=" text-3xl mb-1 font-bold" id="ispu">Kualitas Udara</p>
+                    <p class="text-4xl font-extrabold" id="kategori"></p>
+                    <p class="text-lg mb-2 font-medium" id="last-updated-timestamp">Loading...</p>
+                </div>
+                <div class="flex flex-col ml-1 gap-1 w-1/3">
+                    <div
+                        class="h-full bg-gradient-to-tr from-darker-blue to-lighter-blue rounded-2xl flex justify-center items-center p-2 overflow-x-hidden">
+                        <p class="text-center" id="ispubaik">Tingkat kualitas udara yang sangat baik, tidak memberikan
+                            efek negatif terhadap manusia, hewan, dan tumbuhan. <br> <span
+                                class=" font-extrabold mt-2">Rekomendasi:</span> Sangat baik melakukan kegiatan di luar.
+                        </p>
+                        <p class="text-center" id="ispusedang">Tingkat kualitas udara masih dapat diterima pada
+                            kesehatan manusia, hewan, dan tumbuhan. <br> <span
+                                class=" font-extrabold">Rekomendasi:</span> <br>Kelompok Sensitif: Kurangi aktivitas
+                            fisik yang terlalu lama atau berat. <br>Semua Orang: Masih dapat beraktivitas di luar.</p>
+                        <p class="text-center" id="isputidaksehat">Tingkat kualitas udara yang bersifat merugikan pada
+                            manusia, hewan, dan tumbuhan. <br> <span class=" font-extrabold">Rekomendasi:</span>
+                            <br>Penderita Asma: Harus mengikuti petunjuk kesehatan untuk asma dan menyimpan obat asma.
+                            <br>Penderita Penyakit Jantung: Gejala seperti palpitasi/jatntung berdetak lebih cepat,
+                            sesak nafas, atau kelelahan yang tidak biasa mungkin mengindikasikan masalah serius.
+                            <br>Setiap Orang: Mengurangi aktivitas fisik yang terlalu lama di luar ruangan.
+                        </p>
+                        <p class="text-center" id="ispusangattidaksehat">Tingkat kualitas udara dapat meningkatkan
+                            resiko kesehatan pada sejumlah segmen populasi yang terpapar. <br> <span
+                                class=" font-extrabold">Rekomendasi:</span> <br>Kelompok Sensitif: Hindari semua
+                            aktivitas di luar. <br>Semua Orang: Hindari semua aktivitas fisik yang terlalu lama di luar
+                            ruangan. Pertimbangkan untuk melakukan aktivitas di dalam ruangan.</p>
+                        <p class="text-center" id="ispuberbahaya">Tingkat kualitas udara yang dapat merugikan kesehatan
+                            serius pada populasi dan perlu penanganan cepat. <br> <span
+                                class=" font-extrabold">Rekomendasi:</span> <br>Kelompok Sensitif: Tetap di dalam
+                            ruangan dan hanya melakukan sedikit aktivitas. <br>Semua Orang: Hindari semua aktvitas di
+                            luar.</p>
+                    </div>
+                </div>
+                <div class="flex flex-col ml-1 gap-1 w-1/3">
+                    <div class="h-1/2 bg-gradient-to-tr from-darker-blue to-lighter-blue rounded-2xl flex flex-col justify-center items-center p-2"
+                        id="temp">
+                        <p class="temp-humid-label mb-1">Temperature</p>
+                        <div class="flex items-center w-full justify-center">
+                            <img src="thermometer.png" alt="Temperature Icon" class="w-16 h-16 mr-2">
+                            <p class="temp-humid-value" id="temperature-value"></p>
+                        </div>
+                    </div>
+                    <div class="h-1/2 bg-gradient-to-tr from-darker-blue to-lighter-blue rounded-2xl flex flex-col justify-center items-center p-2"
+                        id="humid">
+                        <p class="temp-humid-label mb-1">Humidity</p>
+                        <div class="flex items-center w-full justify-center">
+                            <img src="humidity.png" alt="Humidity Icon" class="w-12 h-12 mr-2">
+                            <p class="temp-humid-value" id="humidity-value"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="container max-w-full flex justify-center items-start h-auto">
+            <div
+                class="h-52 w-full my-2 bg-lighter-blue rounded-2xl mr-2 p-2 flex flex-col justify-center items-center">
+                <p class=" font-bold text-xl">PM2.5</p>
+                <div class="pm25gauge">
+                    <div class="gauge__body mt-2">
+                        <div class="gauge__fill"></div>
+                        <div class="gauge__cover bg-lighter-blue"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="h-52 w-full my-2 bg-lighter-blue rounded-2xl p-2 flex flex-col justify-center items-center">
+                <p class=" font-bold text-xl">PM10</p>
+                <div class="pm10gauge">
+                    <div class="gauge__body mt-2">
+                        <div class="gauge__fill"></div>
+                        <div class="gauge__cover bg-lighter-blue"></div>
+                    </div>
+                </div>
+            </div>
+            <div
+                class="h-52 w-full my-2 bg-lighter-blue rounded-2xl mx-2 p-2 flex flex-col justify-center items-center">
+                <p class=" font-bold text-xl">Karbon Monoksida</p>
+                <div class="cogauge">
+                    <div class="gauge__body mt-2">
+                        <div class="gauge__fill"></div>
+                        <div class="gauge__cover bg-lighter-blue"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="h-52 w-full my-2 bg-lighter-blue rounded-2xl p-2 flex flex-col justify-center items-center">
+                <p class=" font-bold text-xl">Nitrogen Dioksida</p>
+                <div class="no2gauge">
+                    <div class="gauge__body mt-2">
+                        <div class="gauge__fill"></div>
+                        <div class="gauge__cover bg-lighter-blue"></div>
+                    </div>
+                </div>
+            </div>
+            <div
+                class="h-52 w-full my-2 bg-lighter-blue rounded-2xl ml-2 p-2 flex flex-col justify-center items-center">
+                <p class=" font-bold text-xl">Ozon</p>
+                <div class="o3gauge">
+                    <div class="gauge__body mt-2">
+                        <div class="gauge__fill"></div>
+                        <div class="gauge__cover bg-lighter-blue"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div
+            class="h-52 w-full bg-gradient-to-t from-darker-blue to-lighter-blue rounded-2xl p-1 flex justify-between gap-1">
+            <div class=" w-fit rounded-2xl flex flex-col justify-center items-center gap-1">
+                <button
+                    class="w-full h-full rounded-xl bg-blue-500 text-[#233a6d] shadow-md p-1 ease-in duration-100 hover:bg-blue-400 hover:text-[#344c73] font-extrabold history-data-button">
+                    <a href="graph.html" class="flex items-center justify-center w-full h-full relative">
+                        <img src="airlytic_logo_dark.png" alt="History Data Icon"
+                            class="h-full w-auto p-1 history-data-image">
+                        <span class="history-data-text absolute inset-0 flex items-center justify-center">
+                            HISTORY DATA
+                        </span>
+                    </a>
+                </button>
+                <button
+                    class="w-full h-full rounded-xl bg-blue-500 text-[#233a6d] shadow-md p-1 ease-in duration-100 hover:bg-blue-400 hover:text-[#344c73] font-extrabold"><a
+                        href="download_center.html">DOWNLOAD DATA</a></button>
+            </div>
+            <div class="w-full bg-hijaubaik rounded-2xl flex flex-col justify-center items-center">
+                <p class="text-4xl text-hijaubaikteks font-extrabold">0-50</p>
+                <p class="text-xl text-hijaubaikteks font-bold">BAIK</p>
+            </div>
+            <div class="w-full bg-kuningsedang rounded-2xl flex flex-col justify-center items-center">
+                <p class="text-4xl text-kuningsedangteks font-extrabold">51-100</p>
+                <p class="text-xl text-kuningsedangteks font-bold">SEDANG</p>
+            </div>
+            <div class="w-full bg-orangetidaksehat rounded-2xl flex flex-col justify-center items-center">
+                <p class="text-4xl text-orangetidaksehatteks font-extrabold">101-200</p>
+                <p class="text-xl text-orangetidaksehatteks font-bold">TIDAK SEHAT</p>
+            </div>
+            <div class="w-full bg-merahsangattidaksehat rounded-2xl flex flex-col justify-center items-center">
+                <p class="text-4xl text-merahsangattidaksehatteks font-extrabold">201-300</p>
+                <p class="text-xl text-merahsangattidaksehatteks font-bold">SANGAT TIDAK SEHAT</p>
+            </div>
+            <div class="w-full bg-unguberbahaya rounded-2xl flex flex-col justify-center items-center">
+                <p class="text-4xl text-unguberbahayateks font-extrabold">300+</p>
+                <p class="text-xl text-unguberbahayateks font-bold">BERBAHAYA</p>
+            </div>
+        </div>
+    </div>
+    <footer
+        class="w-full bg-gradient-to-tr from-darker-blue to-lighter-blue px-4 py-2 text-center text-sm text-cyan-950 font-semibold md:hidden">
+        &copy; Shahriza Farhan Widodo - 2025
+    </footer>
+    <script>
+        const gaugeElementpm25 = document.querySelector(".pm25gauge");
+        const gaugeElementpm10 = document.querySelector(".pm10gauge");
+        const gaugeElementco = document.querySelector(".cogauge");
+        const gaugeElementno2 = document.querySelector(".no2gauge");
+        const gaugeElemento3 = document.querySelector(".o3gauge");
+
+        // ELEMEN BARU UNTUK TIMESTAMP
+        const lastUpdatedElement = document.getElementById('last-updated-timestamp');
+
+        function getAirQualityColor(value, pollutant) {
+            const thresholds = {
+                pm25: [50, 150, 350, 420, 500],
+                pm10: [15.5, 55.4, 150.4, 250.4, 500],
+                co: [4000, 8000, 15000, 30000, 45000],
+                no2: [80, 200, 1130, 2260, 3000],
+                o3: [120, 235, 400, 800, 1000]
+            };
+
+            const colors = ["#2ecc71", "#f1c40f", "#e67e22", "#e74c3c", "#8e44ad"];
+            const t = thresholds[pollutant];
+
+            if (value <= t[0]) return colors[0];
+            if (value <= t[1]) return colors[1];
+            if (value <= t[2]) return colors[2];
+            if (value <= t[3]) return colors[3];
+            return colors[4];
+        }
+
+        function setGaugeValue(gauge, value, unit, min, max, pollutantKey) {
+            let normalized = ((value - min) / (max - min)) * 100;
+            if (normalized < 0) normalized = 0;
+            if (normalized > 100) normalized = 100;
+
+            const color = getAirQualityColor(value, pollutantKey);
+            const fill = gauge.querySelector(".gauge__fill");
+            fill.style.transform = `rotate(${normalized / 200}turn)`;
+            fill.style.background = color;
+
+            gauge.querySelector(".gauge__cover").innerHTML = `${Math.round(value)} <span style="font-size: 0.6em;">${unit}</span>`;
+        }
+
+        const ispuElement = document.getElementById('ispu');
+        const kategoriElement = document.getElementById('kategori');
+
+        const ispubaik = document.getElementById('ispubaik');
+        const ispusedang = document.getElementById('ispusedang');
+        const isputidaksehat = document.getElementById('isputidaksehat');
+        const ispusangattidaksehat = document.getElementById('ispusangattidaksehat');
+        const ispuberbahaya = document.getElementById('ispuberbahaya');
+
+        function updateKategori(kategori) {
+            ispubaik.style.display = 'none';
+            ispusedang.style.display = 'none';
+            isputidaksehat.style.display = 'none';
+            ispusangattidaksehat.style.display = 'none';
+            ispuberbahaya.style.display = 'none';
+
+            kategori = kategori.toLowerCase();
+
+            if (kategori.includes("baik")) {
+                ispubaik.style.display = 'block';
+            } else if (kategori.includes("sedang")) {
+                ispusedang.style.display = 'block';
+            } else if (kategori.includes("tidak sehat") && !kategori.includes("sangat")) {
+                isputidaksehat.style.display = 'block';
+            } else if (kategori.includes("sangat tidak sehat")) {
+                ispusangattidaksehat.style.display = 'block';
+            } else if (kategori.includes("berbahaya")) {
+                ispuberbahaya.style.display = 'block';
+            }
+        }
+
+        /**
+         * Mengubah ISO string menjadi format tanggal dan waktu lokal yang mudah dibaca.
+         * Contoh: 2025-12-14T16:37:17.000+07:00 menjadi "14 Des 2025, 16:37:17 (WIB)"
+         * @param {string} isoString - ISO string dari Supabase (misalnya '2025-12-14T16:37:17+07:00')
+         * @returns {string} - String tanggal dan waktu yang diformat.
+         */
+        function formatTimestamp(isoString) {
+            if (!isoString) return 'N/A';
+            try {
+                const date = new Date(isoString);
+                // Opsi untuk format tanggal dan waktu lokal Indonesia
+                const options = {
+                    year: 'numeric',
+                    month: 'short', // Des, Jan, etc.
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false, // Gunakan format 24 jam
+                    timeZoneName: 'short' // Tampilkan zona waktu (misalnya GMT+7, WIB, etc.)
+                };
+                // 'id-ID' untuk format Indonesia (misalnya 14 Des 2025)
+                return date.toLocaleString('id-ID', options);
+            } catch (e) {
+                console.error("Error formatting date:", e);
+                return 'Invalid Date';
+            }
+        }
+
+        async function fetchData() {
+            let finalData = {};
+            let dataKonsentrasi;
+            let dataPrediksi;
+
+            try {
+                // HANYA AMBIL DATA KONSENTRASI TANPA TIMESTAMP
+                const { data: konsentrasi, error: errK } = await supabaseClient
+                    .from('tb_konsentrasi_gas')
+                    .select('pm25_ugm3, pm10_ugm3, co_ugm3, no2_ugm3, o3_ugm3, temperature, humidity') 
+                    .order('timestamp', { ascending: false })
+                    .limit(1)
+
+                if (errK) throw errK;
+                dataKonsentrasi = konsentrasi[0] || {};
+
+                // AMBIL DATA PREDIKSI TERMASUK TIMESTAMP
+                const { data: prediksi, error: errP } = await supabaseClient
+                    .from('tb_prediksi_kualitas_udara')
+                    .select('pm2_5_ispu, pm10_ispu, co_ispu, no2_ispu, o3_ispu, hasil_prediksi, timestamp') 
+                    .order('timestamp', { ascending: false })
+                    .limit(1)
+
+                if (errP) throw errP;
+                dataPrediksi = prediksi[0] || {};
+
+                // Ambil timestamp dari data prediksi saja
+                const latestTimestamp = dataPrediksi.timestamp;
+
+                finalData = {
+                    ...dataKonsentrasi,
+                    ...dataPrediksi,
+                    latestTimestamp: latestTimestamp // Simpan timestamp terbaru
+                };
+
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                kategoriElement.innerText = 'Error fetching data';
+                lastUpdatedElement.innerText = 'Gagal memuat data';
+                updateKategori("Tidak Ada Data");
+                return;
+            }
+
+            if (!finalData.pm25_ugm3 && !finalData.hasil_prediksi) {
+                kategoriElement.innerText = 'No Data';
+                lastUpdatedElement.innerText = 'Tidak ada data terbaru';
+                updateKategori("Tidak Ada Data");
+                return;
+            }
+
+            // Tampilkan Timestamp Terakhir dari tb_prediksi_kualitas_udara
+            lastUpdatedElement.innerText = `Update Terakhir: ${formatTimestamp(finalData.latestTimestamp)}`;
+
+            setGaugeValue(gaugeElementpm25, finalData.pm25_ugm3 || 0, 'µg/m³', 0, 500, 'pm25');
+            setGaugeValue(gaugeElementpm10, finalData.pm10_ugm3 || 0, 'µg/m³', 0, 500, 'pm10');
+            setGaugeValue(gaugeElementco, finalData.co_ugm3 || 0, 'µg/m³', 0, 45000, 'co');
+            setGaugeValue(gaugeElementno2, finalData.no2_ugm3 || 0, 'µg/m³', 0, 3000, 'no2');
+            setGaugeValue(gaugeElemento3, finalData.o3_ugm3 || 0, 'µg/m³', 0, 1000, 'o3');
+
+            // Tampilkan Suhu dan Kelembaban (Handle nilai NULL dari database)
+            const tempValue = finalData.temperature != null ? Math.round(finalData.temperature) : 'N/A';
+            const humidValue = finalData.humidity != null ? Math.round(finalData.humidity) : 'N/A';
+
+            document.getElementById('temperature-value').innerText = `${tempValue} °C`;
+            document.getElementById('humidity-value').innerText = `${humidValue} %RH`;
+
+            // Tampilkan Kategori Prediksi
+            let kategori = finalData.hasil_prediksi || "";
+
+            // Logika tampilan kategori
+            kategoriElement.innerText = kategori.replace('_', ' '); // Tampilkan 'Tidak Sehat'
+            updateKategori(kategori);
+        }
+
+        // Jalankan dan set interval seperti sebelumnya
+        fetchData();
+        setInterval(fetchData, 5000); // Update setiap 5 detik
+    </script>
+    </body>
+
+</html>

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Input ID Telegram ke Supabase</title>
+    <link rel="icon" type="image/x-icon" href="airlytic_logo_gradient.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-dark': '#163242', // Warna baru Anda
+                        'primary-light': '#1e4054', // Nuansa sedikit lebih terang untuk hover/focus
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #e4e1db; 
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 relative">
+
+    <div id="app-container" class="w-full max-w-lg bg-white p-8 md:p-10 rounded-xl shadow-2xl border border-gray-200">
+        
+        <h1 class="text-3xl font-bold text-center text-primary-dark mb-6">
+            Telegram ID Register
+        </h1>
+        <p class="text-gray-600 text-center mb-8">
+            Masukkan ID Telegram Anda di bawah ini untuk disimpan ke database Supabase.
+        </p>
+
+        <form id="telegram-form" class="space-y-6">
+            <div>
+                <label for="teleid" class="block text-sm font-medium text-gray-700 mb-2">ID Telegram (teleid)</label>
+                <input 
+                    type="number" 
+                    id="teleid" 
+                    name="teleid" 
+                    placeholder="Contoh: 1234567890"
+                    required 
+                    min="1"
+                    /* Diubah: Warna fokus menggunakan primary-light */
+                    class="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-primary-light focus:border-primary-light transition duration-150"
+                >
+            </div>
+            
+            <button 
+                type="submit" 
+                id="submit-button"
+                /* Diubah: Menggunakan warna kustom primary-dark untuk latar belakang dan shadow */
+                class="w-full flex justify-center items-center py-3 px-4 border border-transparent text-sm font-semibold rounded-lg text-white bg-primary-dark hover:bg-primary-light focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-dark focus:ring-offset-white transition duration-150 shadow-lg shadow-primary-dark/50"
+            >
+                <span id="button-text">Simpan ID</span>
+                <div id="loading-spinner" class="hidden w-5 h-5 border-2 border-white border-t-transparent border-solid rounded-full animate-spin ml-2"></div>
+            </button>
+        </form>
+
+        <div id="message-area" class="mt-6">
+            </div>
+        
+        <p class="text-center mt-6 pt-4 border-t border-gray-100 text-xs"> 
+            <a 
+                href="https://kumparan.com/how-to-tekno/cara-melihat-id-telegram-kita-sendiri-teman-dan-orang-lain-1wK5RPXqKUL" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                class="text-gray-500 hover:text-gray-700 font-normal underline transition duration-150"
+            >
+                Cara melihat ID Telegram
+            </a>
+            
+            <span class="text-gray-300 mx-2">|</span> 
+
+            <a 
+                href="https://t.me/airlyticrezabot" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                class="text-gray-500 hover:text-gray-700 font-normal underline transition duration-150"
+            >
+                Link to @airlyticrezabot
+            </a>
+        </p>
+
+    </div>
+    
+    <script>
+        // --- KONFIGURASI SUPABASE (SUDAH DIISI OLEH USER) ---
+        // URL Proyek Supabase Anda
+        const SUPABASE_URL = 'https://qnvthdiylfpuumcancxo.supabase.co'; 
+        // Anon Key Supabase Anda
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFudnRoZGl5bGZwdXVtY2FuY3hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5MTMyODgsImV4cCI6MjA3NjQ4OTI4OH0.MnE1KiXh16SelbzOtKFusxgJHAfEtcRrCFvUOlzsCMs';
+
+        // Inisialisasi Klien Supabase
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Elemen DOM
+        const form = document.getElementById('telegram-form');
+        const teleidInput = document.getElementById('teleid');
+        const messageArea = document.getElementById('message-area');
+        const submitButton = document.getElementById('submit-button');
+        const buttonText = document.getElementById('button-text');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        
+        /**
+         * Fungsi untuk menampilkan pesan feedback kepada pengguna.
+         */
+        function displayMessage(type, message) {
+            let bgColor = type === 'success' ? 'bg-green-100 border-green-400' : 'bg-red-100 border-red-400';
+            let textColor = type === 'success' ? 'text-green-800' : 'text-red-800';
+            
+            messageArea.innerHTML = `
+                <div class="p-4 rounded-lg border ${bgColor} ${textColor} text-sm">
+                    ${message}
+                </div>
+            `;
+            // Hapus pesan setelah 5 detik
+            setTimeout(() => {
+                messageArea.innerHTML = '';
+            }, 5000);
+        }
+
+        /**
+         * Fungsi untuk mengatur status loading tombol.
+         */
+        function setFormLoading(isLoading) {
+            submitButton.disabled = isLoading;
+            if (isLoading) {
+                buttonText.textContent = 'Memproses...';
+                loadingSpinner.classList.remove('hidden');
+                submitButton.classList.add('opacity-70', 'cursor-not-allowed');
+            } else {
+                buttonText.textContent = 'Simpan ID';
+                loadingSpinner.classList.add('hidden');
+                submitButton.classList.remove('opacity-70', 'cursor-not-allowed');
+            }
+        }
+
+        // Event Listener untuk Submission Formulir
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            setFormLoading(true);
+            messageArea.innerHTML = ''; // Hapus pesan sebelumnya
+
+            const teleidValue = teleidInput.value.trim();
+
+            if (!teleidValue) {
+                displayMessage('error', 'ID Telegram tidak boleh kosong.');
+                setFormLoading(false);
+                return;
+            }
+
+            // --- LANGKAH 1: CEK DUPLIKASI ID TERLEBIH DAHULU ---
+            try {
+                const { data, error } = await supabaseClient
+                    .from('tb_telegram_id')
+                    .select('teleid')
+                    .eq('teleid', teleidValue); // Cari ID yang sama
+
+                if (error) {
+                    displayMessage('error', `Gagal saat pengecekan ID: ${error.message}`);
+                    setFormLoading(false);
+                    return;
+                }
+
+                // Jika data ditemukan (panjang array > 0), berarti ID sudah terdaftar
+                if (data && data.length > 0) {
+                    displayMessage('error', `❌ ID Telegram ${teleidValue} sudah terdaftar!`);
+                    setFormLoading(false);
+                    return; // Hentikan eksekusi
+                }
+            } catch (err) {
+                console.error('Kesalahan saat pengecekan Supabase:', err);
+                displayMessage('error', 'Terjadi kesalahan jaringan saat mencoba mengecek data.');
+                setFormLoading(false);
+                return;
+            }
+            
+            // --- LANGKAH 2: JIKA TIDAK ADA DUPLIKASI, MAKA LAKUKAN INSERT ---
+            const dataToInsert = {
+                teleid: teleidValue 
+            };
+
+            try {
+                const { error: insertError } = await supabaseClient
+                    .from('tb_telegram_id')
+                    .insert([dataToInsert]);
+                
+                if (insertError) {
+                    // Tangani kesalahan saat INSERT
+                    let errorMessage = 'Gagal menyimpan ID Telegram. ';
+                    // Catatan: Error code 23505 untuk Unique Violation mungkin masih muncul
+                    // jika ada yang insert bersamaan, tapi pengecekan di Langkah 1 mengurangi risiko.
+                    if (insertError.code === '23505') { 
+                        errorMessage = 'ID Telegram ini sudah terdaftar. (Terdeteksi setelah pengecekan awal)';
+                    } else {
+                        errorMessage += `Detail: ${insertError.message}`;
+                    }
+                    displayMessage('error', errorMessage);
+                    console.error('Supabase Insert Error:', insertError);
+                } else {
+                    // Sukses
+                    displayMessage('success', `✅ ID Telegram ${teleidValue} **berhasil disimpan**! Silakan kunjungi bot @airlyticrezabot di aplikasi Telegram Anda dan tekan tombol Start.`);
+                    teleidInput.value = ''; // Kosongkan input
+                }
+
+            } catch (err) {
+                // Tangani kesalahan jaringan atau lainnya pada tahap insert
+                console.error('Kesalahan Jaringan atau Skrip:', err);
+                displayMessage('error', 'Terjadi kesalahan tidak terduga saat koneksi ke server untuk menyimpan data.');
+            } finally {
+                setFormLoading(false);
+            }
+        });
+    </script>
+</body>
+</html>

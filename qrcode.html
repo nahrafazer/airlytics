@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pembuat dan Pembaca QR Code</title>
+    <!-- Memuat Tailwind CSS dari CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Konfigurasi untuk menggunakan Font Inter -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Latar belakang default (light mode) */
+            background-color: #f7f7f7; 
+        }
+        /* Menggunakan kelas dark: untuk mode gelap */
+        .dark body {
+             background-color: #111827; /* Latar belakang dark mode */
+        }
+
+        /* Custom class untuk styling elemen QR Maker */
+        .qrcode-container > canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+            background-color: white; /* Jaga agar background canvas tetap putih untuk QR */
+        }
+    </style>
+    <!-- Library untuk QR Code Maker -->
+    <script src="https://unpkg.com/qrcode-generator@1.4.4/qrcode.js"></script>
+    <!-- Library untuk QR Code Reader (NEW) -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+</head>
+<!-- Menggunakan kelas dark: untuk body di dark mode -->
+<body class="flex items-center justify-center min-h-screen p-4 bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
+
+    <div class="w-full max-w-lg bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 transition-colors duration-300">
+        
+        <!-- Header dan Dark Mode Toggle -->
+        <div class="flex justify-between items-start mb-6">
+            <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">
+                Alat QR Code
+            </h1>
+            <button id="darkModeToggle" onclick="toggleDarkMode()" 
+                    class="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition duration-150">
+                <!-- Icon (dibuat di JS saat memuat) -->
+            </button>
+        </div>
+
+        <!-- Tab Selector -->
+        <div class="flex border-b border-gray-200 dark:border-gray-700 mb-6">
+            <button id="makerTab" onclick="switchTab('maker')"
+                    class="py-2 px-4 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400">
+                 Pembuat (Maker)
+            </button>
+            <button id="readerTab" onclick="switchTab('reader')"
+                    class="py-2 px-4 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400">
+                Pembaca (Reader)
+            </button>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- 1. MAKER SECTION (PEMBUAT) -->
+        <!-- ============================================== -->
+        <div id="makerSection" class="transition-opacity duration-300">
+            <p class="text-center text-gray-500 dark:text-gray-400 mb-6 text-sm">
+                Masukkan konten Anda dan buat QR Code.
+            </p>
+            
+            <!-- Area Pemilihan Jenis Data -->
+            <div class="mb-4">
+                <label for="dataType" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Pilih Jenis Data:
+                </label>
+                <select id="dataType" onchange="updateInputPlaceholder()"
+                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 shadow-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100">
+                    <option value="text">Teks Biasa</option>
+                    <option value="url">URL/Tautan (Website)</option>
+                    <option value="image_url">Tautan Gambar (URL Gambar)</option>
+                </select>
+            </div>
+
+            <!-- Area Input -->
+            <div class="mb-6">
+                <!-- Label akan diperbarui oleh JavaScript -->
+                <label for="dataInput" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2" id="dataLabel">
+                    Data yang Akan Di-encode:
+                </label>
+                <input type="text" id="dataInput" 
+                       placeholder="Contoh: Tulis pesan di sini"
+                       class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 shadow-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
+                       onkeydown="if(event.key === 'Enter') generateQRCode()">
+            </div>
+            
+            <!-- Tombol Generate -->
+            <button id="generateButton" onclick="generateQRCode()"
+                    class="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-semibold py-3 rounded-lg transition duration-200 ease-in-out transform hover:scale-[1.01] shadow-md hover:shadow-lg">
+                Buat QR Code
+            </button>
+
+            <!-- Area Pesan dan QR Code Output -->
+            <div id="outputArea" class="mt-8 p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-center min-h-[250px] flex flex-col justify-center items-center qrcode-container">
+                <p id="initialMessage" class="text-gray-500 dark:text-gray-400 transition-opacity duration-300">
+                    QR Code Anda akan muncul di sini.
+                </p>
+            </div>
+
+            <!-- Tombol Unduh -->
+            <button id="downloadButton" onclick="downloadQRCode()"
+                    class="hidden w-full mt-4 bg-green-500 hover:bg-green-600 text-white font-semibold py-3 rounded-lg transition duration-200 ease-in-out transform hover:scale-[1.01] shadow-md hover:shadow-lg">
+                ⬇️ Unduh Gambar QR Code
+            </button>
+        </div>
+        <!-- ============================================== -->
+        <!-- 2. READER SECTION (PEMBACA) -->
+        <!-- ============================================== -->
+        <div id="readerSection" class="hidden transition-opacity duration-300">
+            <p class="text-center text-gray-500 dark:text-gray-400 mb-4 text-sm">
+                Gunakan kamera atau unggah gambar untuk memindai QR Code.
+            </p>
+            
+            <!-- Area Kamera / Pindai -->
+            <div id="qr-reader-container" class="mt-4 p-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700">
+                 <!-- ID 'qr-reader' digunakan oleh library html5-qrcode -->
+                <div id="qr-reader" class="w-full"></div>
+            </div>
+
+            <!-- Hasil Pindai -->
+            <div id="reader-result" class="mt-4 p-3 rounded-lg border border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-900 hidden">
+                <p class="text-sm font-semibold text-green-800 dark:text-green-200 mb-2">
+                    ✅ Hasil Pindai:
+                </p>
+                <!-- Menampilkan teks hasil scan -->
+                <span id="reader-data" class="font-normal break-all block p-2 bg-white dark:bg-gray-700 rounded-md mb-2 text-gray-800 dark:text-gray-100 border border-gray-200 dark:border-gray-600"></span>
+                <!-- Tombol Salin BARU -->
+                <button id="copyButton" onclick="copyScannedText()"
+                        class="mt-2 text-xs font-semibold px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded-md transition duration-150 shadow-md">
+                    📋 Salin Teks
+                </button>
+            </div>
+            
+            <!-- Area untuk menampilkan pesan error atau status pemindaian -->
+            <div id="reader-status" class="mt-4 p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-center text-sm text-gray-600 dark:text-gray-300">
+                Pindai akan dimulai secara otomatis di sini.
+            </div>
+            
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements - Maker
+        const dataInput = document.getElementById('dataInput');
+        const outputArea = document.getElementById('outputArea');
+        const initialMessage = document.getElementById('initialMessage');
+        const downloadButton = document.getElementById('downloadButton');
+        const generateButton = document.getElementById('generateButton');
+        const dataTypeSelect = document.getElementById('dataType');
+        const dataLabel = document.getElementById('dataLabel');
+        
+        // DOM Elements - Reader
+        const readerSection = document.getElementById('readerSection');
+        const readerResultDiv = document.getElementById('reader-result');
+        const readerDataSpan = document.getElementById('reader-data');
+        const readerStatusDiv = document.getElementById('reader-status');
+        const qrReaderContainer = document.getElementById('qr-reader-container');
+        const copyButton = document.getElementById('copyButton'); // Elemen baru
+        
+        // DOM Elements - Global
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const htmlElement = document.documentElement;
+        const makerSection = document.getElementById('makerSection');
+        const makerTab = document.getElementById('makerTab');
+        const readerTab = document.getElementById('readerTab');
+
+        let currentQRCodeCanvas = null; 
+        let html5QrcodeScanner = null; // Instance scanner
+
+        // ==============================================
+        // MAKER LOGIC 
+        // ==============================================
+
+        /**
+         * Memperbarui label dan placeholder input berdasarkan pilihan jenis data.
+         */
+        function updateInputPlaceholder() {
+            const type = dataTypeSelect.value;
+            switch (type) {
+                case 'text':
+                    dataLabel.textContent = 'Teks yang Akan Di-encode:';
+                    dataInput.placeholder = 'Contoh: Selamat datang di aplikasi QR Code!';
+                    break;
+                case 'url':
+                    dataLabel.textContent = 'URL/Tautan yang Akan Di-encode:';
+                    dataInput.placeholder = 'Contoh: https://www.google.com';
+                    break;
+                case 'image_url':
+                    dataLabel.textContent = 'Tautan Gambar (URL) yang Akan Di-encode:';
+                    dataInput.placeholder = 'Contoh: https://i.imgur.com/contoh-gambar.png';
+                    break;
+            }
+        }
+
+        /**
+         * Menghasilkan QR Code berdasarkan data input.
+         */
+        function generateQRCode() {
+            const data = dataInput.value.trim();
+            outputArea.innerHTML = ''; 
+            initialMessage.style.display = 'none';
+            downloadButton.classList.add('hidden'); 
+
+            if (!data) {
+                outputArea.innerHTML = '<p class="text-red-500 dark:text-red-400 font-semibold">⚠️ Mohon masukkan data untuk dibuat QR Code.</p>';
+                return;
+            }
+
+            generateButton.textContent = 'Membuat...';
+            generateButton.disabled = true;
+
+            const typeNumber = 0; 
+            const errorCorrectionLevel = 'H'; 
+            const qr = qrcode(typeNumber, errorCorrectionLevel);
+
+            try {
+                qr.addData(data);
+                qr.make();
+
+                const size = 256; 
+                const canvas = document.createElement('canvas');
+                canvas.width = size;
+                canvas.height = size;
+                currentQRCodeCanvas = canvas; 
+
+                const context = canvas.getContext('2d');
+                const scale = size / qr.getModuleCount(); 
+
+                qr.renderTo2dContext(context, scale);
+
+                outputArea.appendChild(canvas);
+                downloadButton.classList.remove('hidden');
+
+            } catch (error) {
+                console.error("Gagal membuat QR Code:", error);
+                outputArea.innerHTML = '<p class="text-red-500 dark:text-red-400 font-semibold">❌ Terjadi kesalahan saat membuat QR Code. Mungkin data terlalu panjang.</p>';
+            } finally {
+                generateButton.textContent = 'Buat QR Code';
+                generateButton.disabled = false;
+            }
+        }
+
+        /**
+         * Mengunduh QR Code yang sudah dibuat sebagai file PNG.
+         */
+        function downloadQRCode() {
+            if (currentQRCodeCanvas) {
+                const dataURL = currentQRCodeCanvas.toDataURL('image/png');
+                const link = document.createElement('a');
+                link.href = dataURL;
+                link.download = 'qrcode_generator.png';
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else {
+                console.error("Tidak ada QR Code untuk diunduh.");
+                outputArea.innerHTML += '<p class="text-orange-500 dark:text-orange-400 mt-2">Buat QR Code terlebih dahulu sebelum mengunduh.</p>';
+            }
+        }
+
+        // ==============================================
+        // READER LOGIC
+        // ==============================================
+        
+        /**
+         * Menyalin teks hasil scan ke clipboard.
+         */
+        function copyScannedText() {
+            const textToCopy = readerDataSpan.textContent;
+            if (textToCopy) {
+                // Membuat elemen textarea sementara untuk menyalin teks
+                const tempTextArea = document.createElement('textarea');
+                tempTextArea.value = textToCopy;
+                document.body.appendChild(tempTextArea);
+                tempTextArea.select();
+                
+                try {
+                    // Menggunakan document.execCommand('copy') karena navigato.clipboard.writeText() 
+                    // mungkin tidak berfungsi di iframe
+                    document.execCommand('copy');
+                    
+                    // Feedback visual untuk pengguna (mengubah teks tombol)
+                    copyButton.textContent = '✅ Berhasil Disalin!';
+                    setTimeout(() => {
+                        copyButton.textContent = '📋 Salin Teks';
+                    }, 2000);
+
+                } catch (err) {
+                    console.error('Gagal menyalin teks:', err);
+                    copyButton.textContent = '❌ Gagal Salin';
+                }
+                
+                document.body.removeChild(tempTextArea);
+
+            } else {
+                readerStatusDiv.textContent = 'Tidak ada teks untuk disalin.';
+            }
+        }
+
+        /**
+         * Callback saat pemindaian berhasil.
+         */
+        function onScanSuccess(decodedText, decodedResult) {
+            // Logika ini yang MENAMPILKAN teksnya:
+            readerResultDiv.classList.remove('hidden');
+            readerStatusDiv.classList.add('hidden');
+            readerDataSpan.textContent = decodedText; // <-- Teks ditampilkan di sini
+            
+            // Hentikan pemindai setelah berhasil memindai
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.clear();
+                qrReaderContainer.innerHTML = '<p class="text-green-600 dark:text-green-400 font-semibold">✅ QR Code berhasil dipindai. Hasil ditampilkan di bawah.</p>';
+            }
+        }
+
+        /**
+         * Callback saat pemindaian gagal (atau tidak ada QR code ditemukan).
+         */
+        function onScanFailure(error) {
+            // Ini akan dipanggil terus menerus. Kita hanya perlu log sederhana.
+            // console.warn(`Code scan error = ${error}`);
+        }
+
+        /**
+         * Memulai pemindai QR Code menggunakan webcam.
+         */
+        function startReader() {
+            readerResultDiv.classList.add('hidden');
+            readerStatusDiv.classList.remove('hidden');
+            readerStatusDiv.textContent = 'Memuat kamera... Mohon izinkan akses kamera.';
+
+            // Inisialisasi scanner jika belum ada
+            if (!html5QrcodeScanner) {
+                html5QrcodeScanner = new Html5QrcodeScanner(
+                    "qr-reader", 
+                    { 
+                        fps: 10, 
+                        qrbox: {width: 250, height: 250}, 
+                        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+                        rememberLastUsedCamera: true
+                    },
+                    false);
+            }
+            
+            // Render scanner
+            html5QrcodeScanner.render(
+                onScanSuccess, 
+                onScanFailure 
+            );
+
+            // Ganti teks status setelah render
+            setTimeout(() => {
+                if (readerStatusDiv.textContent.includes('Memuat kamera...')) {
+                     readerStatusDiv.textContent = 'Arahkan kamera ke QR Code. Anda juga dapat memilih file gambar.';
+                }
+            }, 3000);
+        }
+
+        /**
+         * Menghentikan webcam dan membersihkan instance scanner.
+         */
+        function stopReader() {
+            if (html5QrcodeScanner) {
+                // html5-qrcode's clear() method handles both video stream stop and DOM cleanup
+                html5QrcodeScanner.clear().then(() => {
+                    console.log("Scanner stopped.");
+                    html5QrcodeScanner = null;
+                }).catch(err => {
+                    // Handle case where scanner was not running or failed to stop
+                    console.warn("Scanner stop failed:", err);
+                    html5QrcodeScanner = null;
+                });
+            }
+            // Reset container content
+            qrReaderContainer.innerHTML = '<div id="qr-reader" class="w-full"></div>';
+        }
+
+
+        // ==============================================
+        // DARK MODE LOGIC
+        // ==============================================
+
+        function updateDarkModeIcon(isDark) {
+            const sunIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>`;
+            const moonIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`;
+
+            darkModeToggle.innerHTML = isDark ? sunIcon : moonIcon;
+            darkModeToggle.title = isDark ? 'Ubah ke Light Mode' : 'Ubah ke Dark Mode';
+        }
+
+        function toggleDarkMode() {
+            const isDark = htmlElement.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            updateDarkModeIcon(isDark);
+        }
+
+        function loadDarkModePreference() {
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+            let isDark = false;
+
+            if (savedTheme === 'dark') {
+                isDark = true;
+            } else if (savedTheme === 'light') {
+                isDark = false;
+            } else if (prefersDark) {
+                isDark = true;
+            }
+
+            if (isDark) {
+                htmlElement.classList.add('dark');
+            } else {
+                htmlElement.classList.remove('dark');
+            }
+            updateDarkModeIcon(isDark);
+        }
+
+        // ==============================================
+        // TAB SWITCHING LOGIC
+        // ==============================================
+        
+        /**
+         * Mengganti tampilan antara Pembuat dan Pembaca.
+         */
+        function switchTab(tabName) {
+            if (tabName === 'maker') {
+                // Aktifkan tab maker
+                makerSection.classList.remove('hidden');
+                readerSection.classList.add('hidden');
+                makerTab.classList.add('border-blue-500', 'text-blue-600', 'dark:border-blue-400', 'dark:text-blue-400');
+                readerTab.classList.remove('border-blue-500', 'text-blue-600', 'dark:border-blue-400', 'dark:text-blue-400');
+                // Hentikan scanner saat beralih ke maker
+                stopReader(); 
+            } else {
+                // Aktifkan tab reader
+                makerSection.classList.add('hidden');
+                readerSection.classList.remove('hidden');
+                makerTab.classList.remove('border-blue-500', 'text-blue-600', 'dark:border-blue-400', 'dark:text-blue-400');
+                readerTab.classList.add('border-blue-500', 'text-blue-600', 'dark:border-blue-400', 'dark:text-blue-400');
+                // Mulai scanner saat beralih ke reader
+                startReader(); 
+            }
+        }
+
+        // Tampilkan pesan awal saat halaman dimuat
+        window.onload = () => {
+             loadDarkModePreference(); 
+             updateInputPlaceholder(); 
+             switchTab('maker'); // Atur tab default ke Maker
+             console.log("Aplikasi QR Code Maker/Reader siap.");
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard History Data Gas Hari Ini</title>
+    <!-- Menggunakan Placeholder Logo -->
+    <link rel="icon" type="image/x-icon" href="https://placehold.co/16x16/163242/ffffff?text=A">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js and date-fns adapter -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+
+    <style>
+        /* Menggunakan font Nunito */
+        body { 
+            font-family: 'Nunito', sans-serif; 
+        }
+        .card {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1); 
+            transition: transform 0.3s ease; 
+        }
+        .card:hover { 
+            transform: translateY(-3px); 
+        }
+        .spinner {
+            border-top-color: transparent;
+            border-left-color: transparent;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-[#f2f2f0] p-4 sm:p-8 min-h-screen">
+
+    <div id="app" class="w-full max-w-7xl mx-auto space-y-8">
+        <header class="text-center bg-[#a9ced3] p-6 rounded-xl card">
+            <h1 class="text-3xl font-extrabold text-[#163242]">Visualisasi Data Gas Hari Ini</h1>
+            <p id="last-update" class="text-base font-semibold text-gray-700 mt-2">Memuat Data...</p>
+            
+            <!-- Tambahan: Tombol Navigasi -->
+            <div class="mt-4 flex justify-center space-x-4">
+                <a href="#" class="px-4 py-2 bg-[#163242] text-white font-semibold rounded-lg shadow-md hover:bg-[#2b516b] transition duration-200">
+                    Halaman Utama
+                </a>
+                <a href="#" class="px-4 py-2 bg-[#163242] text-white font-semibold rounded-lg shadow-md hover:bg-[#2b516b] transition duration-200">
+                    Pusat Unduhan
+                </a>
+            </div>
+        </header>
+
+        <div id="message-box" class="hidden p-3 rounded-lg text-sm transition-all duration-300"></div>
+        
+        <div id="loading-overlay" class="text-center p-10 bg-white rounded-xl card hidden">
+            <div class="inline-block spinner border-4 w-10 h-10 rounded-full border-[#163242] mr-2"></div>
+            <p class="text-[#163242] font-semibold mt-3">Memuat data historis hari ini...</p>
+        </div>
+
+        <div id="chart-container" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        </div>
+    </div>
+
+    <!-- MAIN JAVASCRIPT LOGIC - Changed to type="module" -->
+    <script type="module">
+        // Import createClient directly from the Supabase module
+        import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+        
+        // Kredensial Supabase Ditetapkan sebagai Konstanta
+        const SUPABASE_URL = "https://qnvthdiylfpuumcancxo.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFudnRoZGl5bGZwdXVtY2FuY3hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5MTMyODgsImV4cCI6MjA3NjQ4OTI4OH0.MnE1KiXh16SelbzOtKFusxgJHAfEtcRrCFvUOlzsCMs";
+        
+        // Konstanta untuk Polling (1 menit)
+        const POLLING_INTERVAL = 60000; // 60.000 ms = 1 menit
+
+        // Kolom Data Polutan yang akan divisualisasikan
+        const DATA_COLUMNS = [
+            'pm25_ugm3', 'pm10_ugm3', 'co_ugm3', 'no2_ugm3', 'o3_ugm3', 'temperature', 'humidity'
+        ];
+        
+        // Pemetaan Manual untuk Tampilan UI, Header Chart, dan Format Nilai
+        const COLUMN_DETAILS = {
+            'pm25_ugm3': { name: 'PM2.5 (µg/m³)', decimals: 1 },
+            'pm10_ugm3': { name: 'PM10 (µg/m³)', decimals: 1 },
+            'co_ugm3': { name: 'CO (µg/m³)', decimals: 0 }, // CO biasanya bilangan bulat
+            'no2_ugm3': { name: 'NO2 (µg/m³)', decimals: 1 },
+            'o3_ugm3': { name: 'O3 (µg/m³)', decimals: 1 },
+            'temperature': { name: 'Suhu (°C)', decimals: 1 },
+            'humidity': { name: 'Kelembaban (%)', decimals: 0 }
+        };
+
+        const CHART_COLORS = [
+            'rgba(239, 68, 68, 1)',  // Merah (PM2.5)
+            'rgba(245, 158, 11, 1)', // Oranye (PM10)
+            'rgba(59, 130, 246, 1)', // Biru (CO)
+            'rgba(16, 185, 129, 1)', // Hijau (NO2)
+            'rgba(139, 92, 246, 1)', // Ungu (O3)
+            'rgba(236, 72, 153, 1)', // Pink (Temperature)
+            'rgba(52, 211, 153, 1)'  // Teal (Humidity)
+        ];
+
+        // DOM Elements
+        const messageBox = document.getElementById('message-box');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const chartContainer = document.getElementById('chart-container');
+        const lastUpdateElement = document.getElementById('last-update'); 
+        
+        // Inisialisasi Supabase
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        // Variabel global untuk menyimpan objek Chart
+        let charts = {}; 
+
+        // -----------------------------
+        // --- UTILITY FUNCTIONS ---
+        // -----------------------------
+
+        /** Menghitung batas waktu hari ini */
+        function getTodayBounds() {
+            const now = new Date();
+            const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+            const startOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+
+            return {
+                start: startOfToday.toISOString(),
+                end: startOfTomorrow.toISOString()
+            };
+        }
+
+        function showMessage(message, type = 'info') {
+            messageBox.textContent = message;
+            messageBox.classList.remove('hidden', 'bg-red-500/30', 'text-red-900', 'bg-green-500/30', 'text-green-900', 'bg-blue-500/30', 'text-blue-900');
+
+            if (type === 'error') {
+                messageBox.classList.add('bg-red-500/30', 'text-red-900'); 
+            } else if (type === 'success') {
+                messageBox.classList.add('bg-green-500/30', 'text-green-900');
+            } else { // info/default
+                messageBox.classList.add('bg-blue-500/30', 'text-blue-900');
+            }
+            messageBox.classList.remove('hidden');
+        }
+
+        /** Mengupdate teks waktu terakhir diperbarui */
+        function formatLastUpdate() {
+            const now = new Date();
+            const dateString = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+            const timeString = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            // Menggunakan span HTML dengan kelas Tailwind 'font-bold'
+            lastUpdateElement.innerHTML = `<span class="font-bold">Data Hari Ini</span> <span class="text-[#163242]">(${dateString})</span> | Terakhir diperbarui: <span class="font-bold">${timeString}</span>`;
+        }
+
+        // -----------------------------
+        // --- CHART RENDERING ---
+        // -----------------------------
+
+        function createChart(canvasId, columnKey, data, color) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            const detail = COLUMN_DETAILS[columnKey];
+
+            if (charts[canvasId]) {
+                charts[canvasId].destroy();
+            }
+
+            charts[canvasId] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: detail.name,
+                        data: data,
+                        borderColor: color,
+                        backgroundColor: color.replace('1)', '0.1)'), 
+                        borderWidth: 2,
+                        pointRadius: 3,
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    tooltips: {
+                        callbacks: {
+                            title: function(tooltipItems) {
+                                // Format waktu lengkap pada tooltip
+                                return new Date(tooltipItems[0].parsed.x).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'medium' });
+                            },
+                            label: function(tooltipItem) {
+                                const value = tooltipItem.parsed.y;
+                                // Format nilai data sesuai kebutuhan desimal
+                                const formattedValue = value.toFixed(detail.decimals);
+                                return `${detail.name}: ${formattedValue}`;
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'hour',
+                                tooltipFormat: 'dd MMM HH:mm:ss', // Tooltip format baru
+                                displayFormats: {
+                                    hour: 'HH:mm', // Format label sumbu X
+                                    day: 'dd/MM'
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Waktu Sepanjang Hari',
+                                color: '#163242'
+                            },
+                            grid: { color: 'rgba(22, 50, 66, 0.1)' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: true, labels: { color: '#163242' } },
+                        title: { display: true, text: `${detail.name}`, color: '#163242', font: { size: 16, weight: 'bold' } }
+                    }
+                }
+            });
+        }
+
+        function renderCharts(rawData) {
+            if (Object.keys(charts).length === 0 || chartContainer.innerHTML === '') {
+                chartContainer.innerHTML = ''; 
+            }
+            
+            if (!rawData || rawData.length === 0) {
+                showMessage("Tidak ada data yang tersedia untuk hari ini.", 'info');
+                chartContainer.innerHTML = '';
+                Object.keys(charts).forEach(key => charts[key].destroy());
+                charts = {};
+                formatLastUpdate();
+                return;
+            }
+
+            DATA_COLUMNS.forEach((columnKey, index) => {
+                const detail = COLUMN_DETAILS[columnKey];
+                const chartColor = CHART_COLORS[index % CHART_COLORS.length];
+                const canvasId = `chart-${columnKey}`;
+
+                const chartData = rawData.map(row => ({
+                    x: new Date(row.timestamp),
+                    y: row[columnKey]
+                }));
+
+                // Cek apakah chart sudah ada
+                if (charts[canvasId]) {
+                    // Jika sudah ada, update datanya
+                    charts[canvasId].data.datasets[0].data = chartData;
+                    charts[canvasId].update();
+                } else {
+                    // Jika belum ada, buat elemen dan chart baru
+                    const chartCard = document.createElement('div');
+                    chartCard.className = 'bg-white p-4 rounded-xl card';
+                    
+                    chartCard.innerHTML = `<canvas id="${canvasId}"></canvas>`;
+                    chartContainer.appendChild(chartCard);
+                    createChart(canvasId, columnKey, chartData, chartColor);
+                }
+            });
+
+            formatLastUpdate();
+        }
+
+        // -----------------------------
+        // --- MAIN DATA FETCHING ---
+        // -----------------------------
+
+        async function fetchHistoryData() {
+            if (Object.keys(charts).length === 0) {
+                loadingOverlay.classList.remove('hidden');
+            }
+            
+            const selectString = ['timestamp', ...DATA_COLUMNS].join(',');
+            const { start, end } = getTodayBounds();
+
+            const { data, error } = await supabase
+                .from('tb_konsentrasi_gas')
+                .select(selectString)
+                // FILTER: Hanya ambil data hari ini
+                .gte('timestamp', start)
+                .lt('timestamp', end)
+                .order('timestamp', { ascending: true });
+
+            loadingOverlay.classList.add('hidden');
+
+            if (error) {
+                showMessage(`Kesalahan saat mengambil data: ${error.message}. Coba periksa koneksi atau konfigurasi Supabase.`, 'error');
+                console.error('Supabase Error:', error);
+                return;
+            }
+
+            if (data && data.length > 0) {
+                renderCharts(data);
+            } else {
+                showMessage("Tidak ada data yang tersedia untuk hari ini.", 'info');
+                chartContainer.innerHTML = '';
+            }
+        }
+
+        // -----------------------------
+        // --- INITIALIZATION ---
+        // -----------------------------
+
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                fetchHistoryData();
+
+                setInterval(fetchHistoryData, POLLING_INTERVAL);
+                
+            } catch (e) {
+                showMessage('Kesalahan fatal saat inisialisasi. Periksa konfigurasi SDK.', 'error');
+                console.error('Inisialisasi Gagal:', e);
+            }
+        });
+    </script>
+</body>
+</html>

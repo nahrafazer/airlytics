@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Airlytic - Air Quality Dashboard</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Nunito -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800;900&display=swap" rel="stylesheet" />
+    <!-- Supabase Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <script>
+        // Konfigurasi Tailwind
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'aqi-baik': '#2ecc71',
+                        'aqi-sedang': '#f1c40f',
+                        'aqi-tidak-sehat': '#e67e22',
+                        'aqi-sangat-tidak-sehat': '#e74c3c',
+                        'aqi-berbahaya': '#8e44ad',
+                    },
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: "Nunito", sans-serif;
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+
+        /* Glassmorphism Logic */
+        .glass-card {
+            backdrop-filter: blur(12px);
+            transition: all 0.3s ease;
+        }
+
+        /* Dark Mode Glass */
+        .dark .glass-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.4);
+        }
+
+        /* Light Mode Glass */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .gauge-container {
+            position: relative;
+            width: 130px;
+            height: 130px;
+        }
+
+        .gauge-svg {
+            transform: rotate(-90deg);
+        }
+
+        .gauge-bg {
+            fill: none;
+            stroke-width: 8;
+        }
+
+        .dark .gauge-bg { stroke: rgba(255, 255, 255, 0.1); }
+        .gauge-bg { stroke: rgba(0, 0, 0, 0.05); }
+
+        .gauge-progress {
+            fill: none;
+            stroke-width: 8;
+            stroke-linecap: round;
+            transition: stroke-dasharray 0.8s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.5s ease;
+        }
+
+        @keyframes drift {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .bg-blob {
+            position: fixed;
+            width: 50vw;
+            height: 50vw;
+            filter: blur(80px);
+            z-index: -1;
+            animation: drift 30s infinite linear;
+            opacity: 0.4;
+        }
+        
+        .dark .bg-blob { opacity: 0.15; }
+
+        @media (min-height: 800px) and (min-width: 1024px) {
+            .main-content {
+                margin-top: 1rem;
+            }
+        }
+    </style>
+</head>
+
+<body class="p-4 md:px-8 md:py-6 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white min-h-screen">
+    <!-- Background Decoration -->
+    <div class="bg-blob top-[-10vw] left-[-10vw] bg-blue-400 dark:bg-blue-600"></div>
+    <div class="bg-blob bottom-[-10vw] right-[-10vw] bg-cyan-400 dark:bg-cyan-600" style="animation-direction: reverse;"></div>
+
+    <!-- Header -->
+    <header class="w-full max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-blue-600 rounded-xl shadow-lg shadow-blue-500/20 text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.8 19.6A2 2 0 1 0 14 16H2"/><path d="M17.5 8a2.5 2.5 0 1 1 2 4H2"/><path d="M9.8 4.4A2 2 0 1 1 11 8H2"/></svg>
+            </div>
+            <div>
+                <h1 class="text-2xl font-black tracking-tighter uppercase italic text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500 dark:from-blue-400 dark:to-cyan-400">AirLytic</h1>
+                <p class="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest leading-none">Air Quality Monitoring & Classification</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <div class="text-center md:text-right hidden sm:block">
+                <p id="last-updated-timestamp" class="text-xs text-slate-500 dark:text-slate-400 font-semibold bg-white/50 dark:bg-slate-800/50 px-3 py-1 rounded-full border border-black/5 dark:border-white/5 shadow-sm">Memuat data...</p>
+            </div>
+            
+            <!-- Mode Toggle Switch -->
+            <button id="theme-toggle" class="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm text-slate-600 dark:text-yellow-400 hover:scale-105 active:scale-95 transition-all">
+                <span id="theme-toggle-dark-icon" class="hidden">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                </span>
+                <span id="theme-toggle-light-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+                </span>
+            </button>
+        </div>
+    </header>
+
+    <main class="w-full max-w-7xl mx-auto main-content flex flex-col gap-4">
+        <!-- Main Prediction Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <section class="lg:col-span-8 glass-card rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-center gap-6 relative overflow-hidden">
+                <div id="status-glow" class="absolute inset-0 opacity-10 pointer-events-none transition-colors duration-1000"></div>
+                
+                <div class="text-center md:text-left flex-1 z-10">
+                    <h2 class="text-sm font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">Status Kualitas Udara</h2>
+                    <div id="kategori" class="text-4xl md:text-6xl font-black mb-3 transition-all duration-500">---</div>
+                    <div id="rekomendasi-text" class="text-slate-600 dark:text-slate-300 text-sm md:text-base leading-relaxed max-w-lg">
+                        Menganalisis kondisi udara terkini...
+                    </div>
+                </div>
+
+                <div class="relative flex flex-col items-center justify-center p-2 z-10 shrink-0">
+                    <div id="main-status-circle" class="w-24 h-24 md:w-28 md:h-28 rounded-full border-4 border-slate-200 dark:border-slate-800 flex items-center justify-center shadow-xl transition-all duration-500 bg-white dark:bg-transparent">
+                         <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" id="status-icon"><circle cx="12" cy="12" r="10"/></svg>
+                    </div>
+                    <div class="text-[10px] font-bold text-slate-400 uppercase mt-3 tracking-widest">INDIKATOR</div>
+                </div>
+            </section>
+
+            <!-- Weather Info -->
+            <section class="lg:col-span-4 grid grid-cols-2 lg:grid-cols-1 gap-4">
+                <div class="glass-card rounded-3xl p-4 md:p-5 flex items-center gap-4">
+                    <div class="p-3 bg-orange-500/10 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400 rounded-2xl shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/></svg>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">Suhu</p>
+                        <p id="temperature-value" class="text-2xl font-black">-- °C</p>
+                    </div>
+                </div>
+                <div class="glass-card rounded-3xl p-4 md:p-5 flex items-center gap-4">
+                    <div class="p-3 bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-2xl shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">Kelembaban</p>
+                        <p id="humidity-value" class="text-2xl font-black">-- %RH</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Pollutant Grid -->
+        <section class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            <!-- PM2.5 -->
+            <div class="glass-card rounded-3xl p-5 flex flex-col items-center">
+                <p class="text-lg font-black text-slate-400 dark:text-slate-500 uppercase mb-4">PM2.5</p>
+                <div class="gauge-container" id="gauge-pm25">
+                    <svg class="gauge-svg w-full h-full" viewBox="0 0 100 100">
+                        <circle class="gauge-bg" cx="50" cy="50" r="40" />
+                        <circle class="gauge-progress" cx="50" cy="50" r="40" stroke-dasharray="0 251" />
+                    </svg>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                        <span class="value text-3xl font-black">0</span>
+                        <span class="unit text-[13px] text-slate-400 font-bold tracking-tighter mt-1">µg/m³</span>
+                    </div>
+                </div>
+            </div>
+            <!-- PM10 -->
+            <div class="glass-card rounded-3xl p-5 flex flex-col items-center">
+                <p class="text-lg font-black text-slate-400 dark:text-slate-500 uppercase mb-4">PM10</p>
+                <div class="gauge-container" id="gauge-pm10">
+                    <svg class="gauge-svg w-full h-full" viewBox="0 0 100 100">
+                        <circle class="gauge-bg" cx="50" cy="50" r="40" />
+                        <circle class="gauge-progress" cx="50" cy="50" r="40" stroke-dasharray="0 251" />
+                    </svg>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                        <span class="value text-3xl font-black">0</span>
+                        <span class="unit text-[13px] text-slate-400 font-bold tracking-tighter mt-1">µg/m³</span>
+                    </div>
+                </div>
+            </div>
+            <!-- CO -->
+            <div class="glass-card rounded-3xl p-5 flex flex-col items-center">
+                <p class="text-lg font-black text-slate-400 dark:text-slate-500 uppercase mb-4">CO</p>
+                <div class="gauge-container" id="gauge-co">
+                    <svg class="gauge-svg w-full h-full" viewBox="0 0 100 100">
+                        <circle class="gauge-bg" cx="50" cy="50" r="40" />
+                        <circle class="gauge-progress" cx="50" cy="50" r="40" stroke-dasharray="0 251" />
+                    </svg>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                        <span class="value text-3xl font-black">0</span>
+                        <span class="unit text-[13px] text-slate-400 font-bold tracking-tighter mt-1">µg/m³</span>
+                    </div>
+                </div>
+            </div>
+            <!-- NO2 -->
+            <div class="glass-card rounded-3xl p-5 flex flex-col items-center">
+                <p class="text-lg font-black text-slate-400 dark:text-slate-500 uppercase mb-4">NO2</p>
+                <div class="gauge-container" id="gauge-no2">
+                    <svg class="gauge-svg w-full h-full" viewBox="0 0 100 100">
+                        <circle class="gauge-bg" cx="50" cy="50" r="40" />
+                        <circle class="gauge-progress" cx="50" cy="50" r="40" stroke-dasharray="0 251" />
+                    </svg>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                        <span class="value text-3xl font-black">0</span>
+                        <span class="unit text-[13px] text-slate-400 font-bold tracking-tighter mt-1">µg/m³</span>
+                    </div>
+                </div>
+            </div>
+            <!-- O3 -->
+            <div class="glass-card rounded-3xl p-5 flex flex-col items-center col-span-2 md:col-span-1">
+                <p class="text-lg font-black text-slate-400 dark:text-slate-500 uppercase mb-4">Ozon</p>
+                <div class="gauge-container" id="gauge-o3">
+                    <svg class="gauge-svg w-full h-full" viewBox="0 0 100 100">
+                        <circle class="gauge-bg" cx="50" cy="50" r="40" />
+                        <circle class="gauge-progress" cx="50" cy="50" r="40" stroke-dasharray="0 251" />
+                    </svg>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                        <span class="value text-3xl font-black">0</span>
+                        <span class="unit text-[13px] text-slate-400 font-bold tracking-tighter mt-1">µg/m³</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Legend and Actions -->
+        <section class="flex flex-col lg:flex-row gap-4 items-stretch pb-2">
+            <div class="flex flex-row md:flex-col gap-2 w-full lg:w-48 shrink-0">
+                <button onclick="window.location.href='graph.html'" class="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-3 px-4 rounded-2xl transition-all shadow-lg shadow-blue-500/10 active:scale-95">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                    HISTORY
+                </button>
+                <button onclick="window.location.href='download_center.html'" class="flex-1 flex items-center justify-center gap-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-white text-xs font-bold py-3 px-4 rounded-2xl transition-all active:scale-95">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                    DOWNLOAD
+                </button>
+            </div>
+
+            <div class="flex-1 glass-card rounded-3xl p-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+                <div class="flex items-center gap-2">
+                    <div class="w-2.5 h-2.5 rounded-full bg-aqi-baik shadow-[0_0_8px_rgba(46,204,113,0.4)]"></div>
+                    <span class="text-[15px] font-extrabold text-slate-500 uppercase tracking-tighter">BAIK</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-2.5 h-2.5 rounded-full bg-aqi-sedang shadow-[0_0_8px_rgba(241,196,15,0.4)]"></div>
+                    <span class="text-[15px] font-extrabold text-slate-500 uppercase tracking-tighter">SEDANG</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-2.5 h-2.5 rounded-full bg-aqi-tidak-sehat shadow-[0_0_8px_rgba(230,126,34,0.4)]"></div>
+                    <span class="text-[15px] font-extrabold text-slate-500 uppercase tracking-tighter">TIDAK SEHAT</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-2.5 h-2.5 rounded-full bg-aqi-sangat-tidak-sehat shadow-[0_0_8px_rgba(231,76,60,0.4)]"></div>
+                    <span class="text-[15px] font-extrabold text-slate-500 uppercase tracking-tighter">SANGAT TIDAK SEHAT</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-2.5 h-2.5 rounded-full bg-aqi-berbahaya shadow-[0_0_8px_rgba(142,68,173,0.4)]"></div>
+                    <span class="text-[15px] font-extrabold text-slate-500 uppercase tracking-tighter">BERBAHAYA</span>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // --- Dark/Light Mode Logic ---
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const themeToggleDarkIcon = document.getElementById('theme-toggle-dark-icon');
+        const themeToggleLightIcon = document.getElementById('theme-toggle-light-icon');
+
+        // Check Local Storage or Preferences
+        if (localStorage.getItem('color-theme') === 'light' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: light)').matches)) {
+            document.documentElement.classList.remove('dark');
+            themeToggleLightIcon.classList.add('hidden');
+            themeToggleDarkIcon.classList.remove('hidden');
+        } else {
+            document.documentElement.classList.add('dark');
+            themeToggleLightIcon.classList.remove('hidden');
+            themeToggleDarkIcon.classList.add('hidden');
+        }
+
+        themeToggleBtn.addEventListener('click', function() {
+            // Toggle icons
+            themeToggleDarkIcon.classList.toggle('hidden');
+            themeToggleLightIcon.classList.toggle('hidden');
+
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('color-theme', 'light');
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('color-theme', 'dark');
+            }
+        });
+
+        // --- Supabase & Data Logic ---
+        const supabaseUrl = 'https://qnvthdiylfpuumcancxo.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFudnRoZGl5bGZwdXVtY2FuY3hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5MTMyODgsImV4cCI6MjA3NjQ4OTI4OH0.MnE1KiXh16SelbzOtKFusxgJHAfEtcRrCFvUOlzsCMs';
+        const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        const pollutantThresholds = {
+            pm25: { max: 500, colors: ['#2ecc71', '#f1c40f', '#e67e22', '#e74c3c', '#8e44ad'], steps: [50, 150, 350, 420] },
+            pm10: { max: 500, colors: ['#2ecc71', '#f1c40f', '#e67e22', '#e74c3c', '#8e44ad'], steps: [15, 55, 150, 250] },
+            co: { max: 45000, colors: ['#2ecc71', '#f1c40f', '#e67e22', '#e74c3c', '#8e44ad'], steps: [4000, 8000, 15000, 30000] },
+            no2: { max: 3000, colors: ['#2ecc71', '#f1c40f', '#e67e22', '#e74c3c', '#8e44ad'], steps: [80, 200, 1130, 2260] },
+            o3: { max: 1000, colors: ['#2ecc71', '#f1c40f', '#e67e22', '#e74c3c', '#8e44ad'], steps: [120, 235, 400, 800] }
+        };
+
+        function getColor(value, pollutant) {
+            const config = pollutantThresholds[pollutant];
+            if (!config) return '#94a3b8';
+            for (let i = 0; i < config.steps.length; i++) {
+                if (value <= config.steps[i]) return config.colors[i];
+            }
+            return config.colors[config.colors.length - 1];
+        }
+
+        function updateGauge(id, value, pollutantKey) {
+            const container = document.getElementById(id);
+            if (!container) return;
+
+            const progressCircle = container.querySelector('.gauge-progress');
+            const valueText = container.querySelector('.value');
+            const max = pollutantThresholds[pollutantKey].max;
+            
+            const radius = 40;
+            const circumference = 2 * Math.PI * radius;
+            const percentage = Math.min(Math.max(value / max, 0), 1);
+            const offset = circumference - (percentage * circumference);
+
+            progressCircle.style.strokeDasharray = `${circumference} ${circumference}`;
+            progressCircle.style.strokeDashoffset = offset;
+            progressCircle.style.stroke = getColor(value, pollutantKey);
+            
+            valueText.innerText = Math.round(value);
+            valueText.style.color = getColor(value, pollutantKey);
+        }
+
+        function updateKategoriUI(kategori) {
+            const el = document.getElementById('kategori');
+            const glow = document.getElementById('status-glow');
+            const circle = document.getElementById('main-status-circle');
+            const rec = document.getElementById('rekomendasi-text');
+            const icon = document.getElementById('status-icon');
+
+            let color = '#94a3b8';
+            let message = "Data sedang disinkronkan...";
+            let iconPath = '<circle cx="12" cy="12" r="10"/>';
+
+            const kat = kategori.toLowerCase();
+
+            if (kat.includes("baik")) {
+                color = '#2ecc71';
+                message = "<b>Tingkat mutu udara sangat baik.</b>Tidak memberikan efek negatif dan sangat ideal untuk aktivitas luar ruangan.";
+                iconPath = '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>';
+            } else if (kat.includes("sedang")) {
+                color = '#f1c40f';
+                message = "<b>Kualitas udara moderat.</b>Tingkat mutu udara masih dapat diterima pada kesehatan manuasia, hewan, dan tumbuhan.";
+                iconPath = '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>';
+            } else if (kat.includes("sangat_tidak_sehat")) {
+                color = '#e74c3c';
+                message = "<b>Peringatan Kesehatan!</b>Tingkat mutu udara dapat meningkatkan resiko kesehatan. Hindari aktivitas fisik di luar ruangan. Gunakan masker medis/N95.";
+                iconPath = '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>';
+            } else if (kat.includes("tidak_sehat")) {
+                color = '#e67e22';
+                message = "<b>Udara tidak sehat.</b>Tingkat mutu udara bersifat <b>merugikan</b> manusia, hewan, dan tumbuhan. Batasi waktu di luar ruangan. Anak-anak dan lansia harus tetap di dalam.";
+                iconPath = '<circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/>';
+            } else if (kat.includes("berbahaya")) {
+                color = '#8e44ad';
+                message = "<b>Kondisi Berbahaya!</b> Semua orang harus tetap di dalam ruangan dengan jendela tertutup rapat.";
+                iconPath = '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>';
+            }
+
+            el.innerText = kategori.replaceAll('_', ' ').toUpperCase();
+            el.style.color = color;
+            glow.style.backgroundColor = color;
+            circle.style.borderColor = color;
+            circle.style.color = color;
+            rec.innerHTML = message;
+            icon.innerHTML = iconPath;
+        }
+
+        async function fetchData() {
+            try {
+                const { data: konsentrasi, error: errK } = await supabaseClient
+                    .from('tb_konsentrasi_gas')
+                    .select('*')
+                    .order('timestamp', { ascending: false })
+                    .limit(1);
+
+                if (errK) throw errK;
+                const dK = konsentrasi[0] || {};
+
+                const { data: prediksi, error: errP } = await supabaseClient
+                    .from('tb_prediksi_kualitas_udara')
+                    .select('*')
+                    .order('timestamp', { ascending: false })
+                    .limit(1);
+
+                if (errP) throw errP;
+                const dP = prediksi[0] || {};
+
+                const date = new Date(dP.timestamp || dK.timestamp);
+                
+                // Update format penanda waktu agar menyertakan tanggal
+                const options = { 
+                    day: 'numeric', 
+                    month: 'short', 
+                    year: 'numeric', 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                };
+                const formattedDate = date.toLocaleString('id-ID', options);
+                
+                document.getElementById('last-updated-timestamp').innerText = 'Last Updated: ' + formattedDate + ' WIB';
+                
+                document.getElementById('temperature-value').innerText = dK.temperature != null ? `${Math.round(dK.temperature)}°C` : '--°C';
+                document.getElementById('humidity-value').innerText = dK.humidity != null ? `${Math.round(dK.humidity)}%` : '--%';
+
+                updateGauge('gauge-pm25', dK.pm25_ugm3 || 0, 'pm25');
+                updateGauge('gauge-pm10', dK.pm10_ugm3 || 0, 'pm10');
+                updateGauge('gauge-co', dK.co_ugm3 || 0, 'co');
+                updateGauge('gauge-no2', dK.no2_ugm3 || 0, 'no2');
+                updateGauge('gauge-o3', dK.o3_ugm3 || 0, 'o3');
+
+                updateKategoriUI(dP.hasil_prediksi || "Menganalisis...");
+
+            } catch (error) {
+                console.error('Fetch error:', error);
+            }
+        }
+
+        fetchData();
+        setInterval(fetchData, 10000); // Update setiap 10 detik agar efisien
+    </script>
+</body>
+</html>

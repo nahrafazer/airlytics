@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Airlytic - History</title>
+    <link rel="icon" type="image/png" href="airlytic_logo_gradient.png">
+    <!-- Google Fonts: Nunito -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800;900&display=swap" rel="stylesheet" />
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js and date-fns adapter -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'aqi-baik': '#2ecc71',
+                        'aqi-sedang': '#f1c40f',
+                        'aqi-tidak-sehat': '#e67e22',
+                        'aqi-sangat-tidak-sehat': '#e74c3c',
+                        'aqi-berbahaya': '#8e44ad',
+                    },
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: "Nunito", sans-serif;
+            transition: background-color 0.5s ease, color 0.5s ease;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Glassmorphism Logic */
+        .glass-card {
+            backdrop-filter: blur(16px);
+            transition: all 0.3s ease;
+        }
+
+        .dark .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .spinner {
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes drift {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .bg-blob {
+            position: fixed;
+            width: 45vw;
+            height: 45vw;
+            filter: blur(100px);
+            z-index: -1;
+            animation: drift 35s infinite linear;
+            opacity: 0.4;
+        }
+
+        .dark .bg-blob { opacity: 0.1; }
+
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            cursor: pointer;
+        }
+        
+        .dark input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+        }
+    </style>
+</head>
+
+<body class="p-3 md:p-5 lg:p-6 gap-3 md:gap-4 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white">
+    <!-- Dekorasi Latar Belakang -->
+    <div class="bg-blob top-[-10vw] right-[-5vw] bg-blue-400 dark:bg-blue-600"></div>
+    <div class="bg-blob bottom-[-10vw] left-[-5vw] bg-cyan-400 dark:bg-cyan-600" style="animation-direction: reverse;"></div>
+
+    <main class="w-full max-w-7xl mx-auto flex flex-col gap-3 md:gap-4 h-full overflow-hidden">
+        <!-- Header & Navigasi -->
+        <header class="flex flex-col md:flex-row justify-between items-center gap-4 shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-blue-600 rounded-xl shadow-lg shadow-blue-500/20 text-white">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-black tracking-tighter uppercase italic text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500 dark:from-blue-400 dark:to-cyan-400 leading-none">Airlytic History</h1>
+                    <p class="text-[9px] md:text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-[0.2em] mt-1 italic">History Pembacaan Sensor</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <nav class="flex items-center gap-2 bg-white/50 dark:bg-slate-900/40 p-1 rounded-xl border border-black/5 dark:border-white/5 shadow-sm">
+                    <a href="index.html" class="px-3 py-1.5 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-white transition-all rounded-lg hover:bg-black/5 dark:hover:bg-white/5">Beranda</a>
+                    <div class="w-px h-3 bg-slate-300 dark:bg-slate-700"></div>
+                    <a href="download_center.html" class="px-3 py-1.5 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-white transition-all rounded-lg hover:bg-black/5 dark:hover:bg-white/5">Unduhan</a>
+                </nav>
+
+                <!-- Mode Toggle -->
+                <button id="theme-toggle" class="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm text-slate-600 dark:text-yellow-400 hover:scale-105 active:scale-95 transition-all">
+                    <span id="theme-toggle-dark-icon" class="hidden">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                    </span>
+                    <span id="theme-toggle-light-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+                    </span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Filter Kontrol -->
+        <section class="glass-card rounded-2xl md:rounded-[2rem] p-4 md:p-5 flex flex-col md:flex-row items-center justify-between gap-4 shrink-0">
+            <div class="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
+                <div class="flex flex-col gap-1 w-full md:w-auto">
+                    <label class="text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest ml-1">Pilih Tanggal</label>
+                    <input type="date" id="date-picker" class="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all w-full md:w-40">
+                </div>
+                <button id="refresh-button" class="md:mt-4 w-full md:w-auto bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest px-5 py-2.5 rounded-lg transition-all shadow-lg shadow-blue-600/20 active:scale-95">
+                    Tampilkan Data
+                </button>
+            </div>
+            <div class="hidden md:block text-right">
+                <p id="last-update" class="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">---</p>
+            </div>
+        </section>
+
+        <!-- Kotak Pesan -->
+        <div id="message-box" class="hidden p-3 rounded-xl text-[10px] font-bold border transition-all duration-300 shrink-0"></div>
+
+        <!-- Indikator Loading -->
+        <div id="loading-overlay" class="hidden glass-card rounded-[2rem] flex-1 flex flex-col items-center justify-center text-center">
+            <div class="spinner border-4 w-10 h-10 rounded-full border-blue-500 mb-4"></div>
+            <p class="text-xs font-black uppercase tracking-widest text-blue-500 animate-pulse">Memproses Data Gabungan...</p>
+        </div>
+
+        <!-- Area Grafik -->
+        <section id="chart-container" class="flex-1 min-h-0 w-full overflow-hidden">
+            <!-- Canvas akan dibuat di sini -->
+        </section>
+    </main>
+
+    <script type="module">
+        import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+        // --- Konstanta & Inisialisasi State (Ditempatkan di awal untuk menghindari ReferenceError) ---
+        const SUPABASE_URL = "https://qnvthdiylfpuumcancxo.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFudnRoZGl5bGZwdXVtY2FuY3hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5MTMyODgsImV4cCI6MjA3NjQ4OTI4OH0.MnE1KiXh16SelbzOtKFusxgJHAfEtcRrCFvUOlzsCMs";
+        const POLLING_INTERVAL = 60000;
+        const ALL_SENSORS = ['pm25_ugm3', 'pm10_ugm3', 'co_ugm3', 'no2_ugm3', 'o3_ugm3', 'temperature', 'humidity'];
+        
+        const COLUMN_DETAILS = {
+            'pm25_ugm3': { name: 'PM2.5', decimals: 1, color: '#3b82f6' },
+            'pm10_ugm3': { name: 'PM10', decimals: 1, color: '#10b981' },
+            'co_ugm3': { name: 'CO', decimals: 0, color: '#eab308' },
+            'no2_ugm3': { name: 'NO2', decimals: 1, color: '#ef4444' },
+            'o3_ugm3': { name: 'O3', decimals: 1, color: '#a855f7' },
+            'temperature': { name: 'Suhu', decimals: 1, color: '#f97316' },
+            'humidity': { name: 'Kelembaban', decimals: 0, color: '#06b6d4' }
+        };
+
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        let combinedChart = null; 
+        let pollingIntervalId = null; 
+
+        // Referensi Elemen DOM
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const themeToggleDarkIcon = document.getElementById('theme-toggle-dark-icon');
+        const themeToggleLightIcon = document.getElementById('theme-toggle-light-icon');
+        const messageBox = document.getElementById('message-box');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const chartContainer = document.getElementById('chart-container');
+        const lastUpdateElement = document.getElementById('last-update'); 
+        const datePicker = document.getElementById('date-picker');
+        const refreshButton = document.getElementById('refresh-button');
+
+        // --- Logika Dark/Light Mode ---
+        function updateTheme() {
+            const isDark = document.documentElement.classList.contains('dark');
+            if (themeToggleDarkIcon && themeToggleLightIcon) {
+                themeToggleDarkIcon.classList.toggle('hidden', isDark);
+                themeToggleLightIcon.classList.toggle('hidden', !isDark);
+            }
+            
+            // Update warna grafik jika sudah dibuat
+            if (combinedChart) {
+                const textColor = isDark ? '#94a3b8' : '#64748b';
+                const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+                
+                combinedChart.options.scales.x.ticks.color = textColor;
+                combinedChart.options.scales.y.ticks.color = textColor;
+                combinedChart.options.scales.y.grid.color = gridColor;
+                combinedChart.options.plugins.legend.labels.color = textColor;
+                combinedChart.update('none'); // Update tanpa animasi untuk performa
+            }
+        }
+
+        // Inisialisasi Tema
+        if (localStorage.getItem('color-theme') === 'light' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: light)').matches)) {
+            document.documentElement.classList.remove('dark');
+        } else {
+            document.documentElement.classList.add('dark');
+        }
+        updateTheme();
+
+        themeToggleBtn.addEventListener('click', function() {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('color-theme', 'light');
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('color-theme', 'dark');
+            }
+            updateTheme();
+        });
+
+        // --- Logika Grafik & Supabase ---
+        function showMessage(message, type = 'info') {
+            messageBox.textContent = message;
+            messageBox.classList.remove('hidden', 'bg-red-500/10', 'text-red-400', 'border-red-500/30', 'bg-blue-500/10', 'text-blue-400', 'border-blue-500/30');
+            if (type === 'error') messageBox.classList.add('bg-red-500/10', 'text-red-400', 'border-red-500/30');
+            else messageBox.classList.add('bg-blue-500/10', 'text-blue-400', 'border-blue-500/30');
+            messageBox.classList.remove('hidden');
+            setTimeout(() => { messageBox.classList.add('hidden'); }, 5000);
+        }
+
+        function createCombinedChart(canvasId, datasets) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            const isDark = document.documentElement.classList.contains('dark');
+            const textColor = isDark ? '#94a3b8' : '#64748b';
+            const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+            
+            combinedChart = new Chart(ctx, {
+                type: 'line',
+                data: { datasets: datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: { unit: 'hour', displayFormats: { hour: 'HH:mm' } },
+                            grid: { display: false },
+                            ticks: { color: textColor, font: { size: 10, weight: 'bold' } }
+                        },
+                        y: {
+                            grid: { color: gridColor },
+                            ticks: { color: textColor, font: { size: 10 } }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: textColor, padding: 10, font: { size: 9, weight: 'bold' }, usePointStyle: true, boxWidth: 6, boxHeight: 6 }
+                        },
+                        tooltip: {
+                            backgroundColor: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                            titleColor: isDark ? '#fff' : '#0f172a',
+                            bodyColor: isDark ? '#cbd5e1' : '#475569',
+                            borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                            borderWidth: 1,
+                            padding: 10,
+                            cornerRadius: 10,
+                            callbacks: {
+                                label: (ctx) => {
+                                    const detail = COLUMN_DETAILS[ctx.dataset.columnKey];
+                                    return ` ${detail.name}: ${ctx.parsed.y.toFixed(detail.decimals)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function fetchHistoryData(selectedDate = datePicker.value) {
+            const isToday = selectedDate === new Date().toISOString().split('T')[0];
+            
+            if (!isToday) {
+                if (pollingIntervalId) { clearInterval(pollingIntervalId); pollingIntervalId = null; }
+            } else if (!pollingIntervalId) {
+                pollingIntervalId = setInterval(() => fetchHistoryData(datePicker.value), POLLING_INTERVAL);
+            }
+
+            loadingOverlay.classList.remove('hidden');
+            const start = new Date(selectedDate + "T00:00:00").toISOString();
+            const end = new Date(new Date(start).getTime() + 86400000).toISOString();
+
+            try {
+                const { data, error } = await supabase
+                    .from('tb_konsentrasi_gas')
+                    .select(['timestamp', ...ALL_SENSORS].join(','))
+                    .gte('timestamp', start)
+                    .lt('timestamp', end)
+                    .order('timestamp', { ascending: true });
+
+                loadingOverlay.classList.add('hidden');
+
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    const datasets = ALL_SENSORS.map((key) => {
+                        const detail = COLUMN_DETAILS[key];
+                        return {
+                            label: detail.name,
+                            columnKey: key,
+                            data: data.map(row => ({ x: new Date(row.timestamp), y: row[key] })),
+                            borderColor: detail.color,
+                            backgroundColor: detail.color + '10',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            tension: 0.3,
+                            fill: false
+                        };
+                    });
+
+                    if (!document.getElementById('chart-all-combined')) {
+                        chartContainer.innerHTML = `<div class="glass-card rounded-2xl md:rounded-[2rem] p-3 md:p-5 h-full"><canvas id="chart-all-combined"></canvas></div>`;
+                        createCombinedChart('chart-all-combined', datasets);
+                    } else {
+                        combinedChart.data.datasets = datasets;
+                        combinedChart.update();
+                    }
+                    
+                    const dateObj = new Date(selectedDate);
+                    lastUpdateElement.innerText = `Data: ${dateObj.toLocaleDateString('id-ID', {day:'numeric', month:'short'})}`;
+                    showMessage(`Memuat ${data.length} data.`, 'success');
+                } else {
+                    chartContainer.innerHTML = '';
+                    if (combinedChart) { combinedChart.destroy(); combinedChart = null; }
+                    showMessage(`Tidak ada data pada ${selectedDate}.`, 'info');
+                }
+            } catch (err) {
+                loadingOverlay.classList.add('hidden');
+                showMessage(`Error: ${err.message}`, 'error');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const todayStr = new Date().toISOString().split('T')[0];
+            datePicker.value = todayStr;
+            datePicker.max = todayStr;
+
+            refreshButton.addEventListener('click', () => fetchHistoryData(datePicker.value));
+            datePicker.addEventListener('change', () => fetchHistoryData(datePicker.value));
+
+            fetchHistoryData(todayStr);
+        });
+    </script>
+</body>
+
+</html>

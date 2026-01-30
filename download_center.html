@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Airlytic - Download Center</title>
+    <link rel="icon" type="image/png" href="airlytic_logo_gradient.png">
+    <link rel="icon" type="image/png" href="airlytic_logo_gradient.png">
+    <!-- Google Fonts: Nunito -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800;900&display=swap" rel="stylesheet" />
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'aqi-baik': '#2ecc71',
+                        'aqi-sedang': '#f1c40f',
+                        'aqi-tidak-sehat': '#e67e22',
+                        'aqi-sangat-tidak-sehat': '#e74c3c',
+                        'aqi-berbahaya': '#8e44ad',
+                    },
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: "Nunito", sans-serif;
+            transition: background-color 0.5s ease, color 0.5s ease;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* Glassmorphism Logic */
+        .glass-card {
+            backdrop-filter: blur(16px);
+            transition: all 0.3s ease;
+        }
+
+        .dark .glass-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .spinner {
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes drift {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .bg-blob {
+            position: fixed;
+            width: 50vw;
+            height: 50vw;
+            filter: blur(80px);
+            z-index: -1;
+            animation: drift 30s infinite linear;
+            opacity: 0.4;
+        }
+
+        .dark .bg-blob { opacity: 0.12; }
+
+        /* Styling Custom Form Elements */
+        select {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 0.5rem center;
+            background-repeat: no-repeat;
+            background-size: 1.5em 1.5em;
+            appearance: none;
+        }
+    </style>
+</head>
+
+<body class="p-4 md:p-8 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white">
+    <!-- Dekorasi Latar Belakang -->
+    <div class="bg-blob top-[-15vw] right-[-10vw] bg-blue-400 dark:bg-blue-600"></div>
+    <div class="bg-blob bottom-[-15vw] left-[-10vw] bg-cyan-400 dark:bg-cyan-600" style="animation-direction: reverse;"></div>
+
+    <main class="w-full max-w-4xl mx-auto flex flex-col gap-6">
+        <!-- Header Halaman -->
+        <header class="flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-blue-600 rounded-xl shadow-lg shadow-blue-500/20 text-white">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                </div>
+                <div>
+                    <!-- Mengganti leading-none menjadi leading-tight dan menambahkan sedikit padding bawah/kanan -->
+                    <h1 class="text-2xl font-black tracking-tighter uppercase italic text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500 dark:from-blue-400 dark:to-cyan-400 leading-tight pr-1 pb-1">Download Center</h1>
+                    <p class="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest leading-none">Ekspor Data Historis AirLytic</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <!-- Mode Toggle -->
+                <button id="theme-toggle" class="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm text-slate-600 dark:text-yellow-400 hover:scale-105 active:scale-95 transition-all">
+                    <span id="theme-toggle-dark-icon" class="hidden">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                    </span>
+                    <span id="theme-toggle-light-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+                    </span>
+                </button>
+
+                <button id="back-button" class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-700/50 border border-slate-200 dark:border-white/5 rounded-full text-xs font-bold text-slate-700 dark:text-white transition-all active:scale-95 shadow-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                    KEMBALI
+                </button>
+            </div>
+        </header>
+
+        <!-- Kartu Utama -->
+        <div class="glass-card rounded-[2.5rem] p-6 md:p-10 space-y-8">
+            <div class="space-y-2">
+                <h2 class="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Konfigurasi Ekspor CSV</h2>
+                <p class="text-slate-500 dark:text-slate-400 text-sm">Pilih sumber data dan parameter yang ingin Anda unduh untuk analisis lebih lanjut.</p>
+            </div>
+
+            <!-- Pesan Status -->
+            <div id="message-box" class="hidden p-4 rounded-2xl text-xs font-bold transition-all duration-300 border"></div>
+
+            <div class="space-y-8">
+                <!-- 1. Pilih Tabel -->
+                <div class="space-y-3">
+                    <label for="table-select" class="flex items-center gap-2 text-sm font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">
+                        <span class="w-6 h-6 flex items-center justify-center bg-blue-500/10 dark:bg-blue-500/20 rounded-lg text-[10px]">01</span>
+                        Pilih Sumber Tabel
+                    </label>
+                    <select id="table-select" class="w-full bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-2xl py-3 px-4 text-sm text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all shadow-sm">
+                        <option value="" disabled selected>-- Pilih salah satu tabel --</option>
+                        <option value="tb_konsentrasi_gas">Konsentrasi Gas</option>
+                        <option value="tb_prediksi_kualitas_udara">Hasil Prediksi ISPU</option>
+                    </select>
+                </div>
+
+                <!-- 2. Pilih Kolom -->
+                <div class="space-y-3">
+                    <label class="flex items-center gap-2 text-sm font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">
+                        <span class="w-6 h-6 flex items-center justify-center bg-blue-500/10 dark:bg-blue-500/20 rounded-lg text-[10px]">02</span>
+                        Pilih Parameter Data
+                    </label>
+                    <div id="column-options" class="bg-white/50 dark:bg-slate-900/30 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 shadow-inner">
+                        <p class="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase italic col-span-full text-center py-4 tracking-wider">Silakan pilih tabel sumber terlebih dahulu</p>
+                    </div>
+                </div>
+
+                <!-- Tombol Aksi -->
+                <div class="pt-4">
+                    <button id="download-button" disabled class="w-full flex justify-center items-center py-4 px-6 rounded-2xl shadow-xl text-sm font-black uppercase tracking-widest text-white bg-blue-600 hover:bg-blue-500 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-[0.98]">
+                        <svg id="download-icon" class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                        <div id="loading-spinner" class="hidden spinner border-2 w-5 h-5 rounded-full border-white mr-3"></div>
+                        <span id="button-text">UNDUH DATA CSV</span>
+                    </button>
+                    <p class="text-[10px] text-center text-slate-400 dark:text-slate-500 font-bold mt-4 uppercase tracking-widest">Maksimal 10.000 baris data terbaru akan diekspor</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- Dark/Light Mode Logic ---
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const themeToggleDarkIcon = document.getElementById('theme-toggle-dark-icon');
+        const themeToggleLightIcon = document.getElementById('theme-toggle-light-icon');
+
+        function updateTheme() {
+            const isDark = document.documentElement.classList.contains('dark');
+            themeToggleDarkIcon.classList.toggle('hidden', isDark);
+            themeToggleLightIcon.classList.toggle('hidden', !isDark);
+        }
+
+        if (localStorage.getItem('color-theme') === 'light' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: light)').matches)) {
+            document.documentElement.classList.remove('dark');
+        } else {
+            document.documentElement.classList.add('dark');
+        }
+        updateTheme();
+
+        themeToggleBtn.addEventListener('click', function() {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('color-theme', 'light');
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('color-theme', 'dark');
+            }
+            updateTheme();
+        });
+
+        // --- Supabase & Export Logic ---
+        const SUPABASE_URL = "https://qnvthdiylfpuumcancxo.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFudnRoZGl5bGZwdXVtY2FuY3hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5MTMyODgsImV4cCI6MjA3NjQ4OTI4OH0.MnE1KiXh16SelbzOtKFusxgJHAfEtcRrCFvUOlzsCMs";
+
+        const TABLE_COLUMNS = {
+            'tb_konsentrasi_gas': ['pm25_ugm3', 'pm10_ugm3', 'co_ugm3', 'no2_ugm3', 'o3_ugm3', 'temperature', 'humidity'],
+            'tb_prediksi_kualitas_udara': ['pm2_5_ispu', 'pm10_ispu', 'co_ispu', 'no2_ispu', 'o3_ispu', 'hasil_prediksi']
+        };
+
+        const COLUMN_DISPLAY_NAMES = {
+            'id': 'ID',
+            'timestamp': 'Waktu',
+            'pm25_ugm3': 'PM2.5 (Konsentrasi)',
+            'pm10_ugm3': 'PM10 (Konsentrasi)',
+            'co_ugm3': 'CO',
+            'no2_ugm3': 'NO2',
+            'o3_ugm3': 'O3',
+            'temperature': 'Suhu (°C)',
+            'humidity': 'Kelembaban (%)',
+            'pm2_5_ispu': 'PM2.5 (ISPU)',
+            'pm10_ispu': 'PM10 (ISPU)',
+            'co_ispu': 'CO (ISPU)',
+            'no2_ispu': 'NO2 (ISPU)',
+            'o3_ispu': 'O3 (ISPU)',
+            'hasil_prediksi': 'Kategori ISPU'
+        };
+
+        const REQUIRED_COLUMNS = ['id', 'timestamp'];
+        const tableSelect = document.getElementById('table-select');
+        const columnOptionsDiv = document.getElementById('column-options');
+        const downloadButton = document.getElementById('download-button');
+        const messageBox = document.getElementById('message-box');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const downloadIcon = document.getElementById('download-icon');
+        const buttonText = document.getElementById('button-text');
+        const backButton = document.getElementById('back-button');
+
+        let supabaseClient = null;
+
+        function showMessage(message, type = 'info') {
+            messageBox.textContent = message;
+            messageBox.classList.remove('hidden', 'bg-red-500/20', 'text-red-400', 'border-red-500/50', 'bg-green-500/20', 'text-green-400', 'border-green-500/50', 'bg-blue-500/20', 'text-blue-400', 'border-blue-500/50');
+            
+            if (type === 'error') messageBox.classList.add('bg-red-500/20', 'text-red-400', 'border-red-500/50');
+            else if (type === 'success') messageBox.classList.add('bg-green-500/20', 'text-green-400', 'border-green-500/50');
+            else messageBox.classList.add('bg-blue-500/20', 'text-blue-400', 'border-blue-500/50');
+            
+            messageBox.classList.remove('hidden');
+        }
+
+        function setDownloadState(isLoading = false) {
+            const tableSelected = tableSelect.value !== "";
+            downloadButton.disabled = isLoading || !tableSelected;
+
+            if (isLoading) {
+                loadingSpinner.classList.remove('hidden');
+                downloadIcon.classList.add('hidden');
+                buttonText.textContent = 'PROSES EKSPOR...';
+            } else {
+                loadingSpinner.classList.add('hidden');
+                downloadIcon.classList.remove('hidden');
+                buttonText.textContent = 'UNDUH DATA CSV';
+            }
+        }
+
+        function renderColumnOptions(tableName) {
+            columnOptionsDiv.innerHTML = '';
+            const columns = TABLE_COLUMNS[tableName];
+            if (!columns) return;
+
+            columns.forEach(col => {
+                const label = document.createElement('label');
+                label.className = 'flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-700/60 border border-slate-200 dark:border-white/5 rounded-2xl transition-all cursor-pointer group shadow-sm';
+                label.innerHTML = `
+                    <input type="checkbox" name="column" value="${col}" checked class="w-4 h-4 rounded border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-blue-500 focus:ring-blue-500/50 focus:ring-offset-0">
+                    <span class="text-xs font-bold text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors uppercase tracking-tight">${COLUMN_DISPLAY_NAMES[col] || col}</span>
+                `;
+                columnOptionsDiv.appendChild(label);
+            });
+        }
+
+        async function downloadProcess() {
+            if (!supabaseClient) return;
+            setDownloadState(true);
+            const tableName = tableSelect.value;
+            const selectedCols = Array.from(columnOptionsDiv.querySelectorAll('input[name="column"]:checked')).map(c => c.value);
+            const allCols = [...REQUIRED_COLUMNS, ...selectedCols];
+
+            try {
+                const { data, error } = await supabaseClient.from(tableName).select(allCols.join(',')).order('timestamp', { ascending: false }).limit(10000);
+                if (error) throw error;
+                if (!data || data.length === 0) {
+                    showMessage('Tidak ada data tersedia untuk periode ini.', 'error');
+                    setDownloadState(false);
+                    return;
+                }
+
+                // Convert to CSV
+                const headers = allCols.map(c => COLUMN_DISPLAY_NAMES[c] || c);
+                let csv = headers.join(',') + '\n';
+                data.forEach(row => {
+                    const line = allCols.map(c => {
+                        let v = row[c] === null ? '' : String(row[c]);
+                        return v.includes(',') ? `"${v}"` : v;
+                    });
+                    csv += line.join(',') + '\n';
+                });
+
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `AirLytic_${tableName}_${new Date().getTime()}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                showMessage(`Sukses! ${data.length} baris data berhasil diunduh.`, 'success');
+            } catch (err) {
+                showMessage(`Gagal: ${err.message}`, 'error');
+            }
+            setDownloadState(false);
+        }
+
+        tableSelect.addEventListener('change', () => {
+            renderColumnOptions(tableSelect.value);
+            setDownloadState(false);
+        });
+
+        downloadButton.addEventListener('click', downloadProcess);
+        backButton.addEventListener('click', () => window.location.href = 'index.html');
+
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            } catch (e) {
+                showMessage('Koneksi database gagal.', 'error');
+            }
+        });
+    </script>
+</body>
+
+</html>

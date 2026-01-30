@@ -1,0 +1,5 @@
+Baik
+Berbahaya
+Sangat_Tidak_Sehat
+Sedang
+Tidak_Sehat

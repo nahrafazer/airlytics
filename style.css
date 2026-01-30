@@ -1,0 +1,95 @@
+body {
+    font-family: sans-serif;
+    background-color: #f4f4f4;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+}
+
+.container {
+    background-color: #fff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    width: 100%;
+    max-width: 450px; /* Lebar container lebih besar */
+}
+
+h1 {
+    color: #333;
+    margin-bottom: 15px;
+    font-size: 1.8em;
+}
+
+p {
+    color: #666;
+    margin-bottom: 25px;
+}
+
+.form-group {
+    margin-bottom: 20px; /* Jarak antar grup form */
+    text-align: left;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px; /* Jarak label dengan input */
+    font-weight: bold;
+    color: #555;
+    font-size: 1.1em;
+}
+
+input[type="number"] {
+    width: calc(100% - 24px); /* Kurangi padding + border */
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px; /* Sudut lebih melengkung */
+    font-size: 17px;
+    box-sizing: border-box; /* Pastikan padding tidak menambah lebar */
+}
+
+button {
+    background-color: #007bff;
+    color: white;
+    padding: 14px 25px; /* Padding lebih besar */
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 18px;
+    transition: background-color 0.3s ease;
+    width: 100%; /* Tombol penuh lebar */
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+
+.result {
+    margin-top: 35px; /* Jarak dari form */
+    padding: 25px;
+    background-color: #e9f7ef;
+    border: 1px solid #d4edda;
+    border-radius: 8px;
+    text-align: left;
+}
+
+.result h2 {
+    color: #28a745;
+    margin-top: 0;
+    margin-bottom: 12px;
+    font-size: 1.6em;
+}
+
+.result p {
+    color: #333;
+    margin-bottom: 8px;
+    font-size: 1.1em;
+}
+
+.result strong {
+    color: #0056b3; /* Warna lebih menonjol */
+    font-size: 1.2em; /* Ukuran teks lebih besar */
+}
